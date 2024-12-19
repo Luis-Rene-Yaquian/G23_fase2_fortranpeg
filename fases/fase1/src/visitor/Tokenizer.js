@@ -52,7 +52,7 @@ end module tokenizer
     visitOpciones(node) {
         return node.exprs[0].accept(this);
     }
-    visitUnion(node) {
+    visitUnion(node) {//recorrer toda la lista 
         return node.exprs[0].accept(this);
     }
     visitExpresion(node) {
@@ -64,7 +64,7 @@ end module tokenizer
         if (node.isCase !== undefined) {
             salida = `  if ("${node.val}" == input(cursor:cursor + ${node.val.length - 1})) then`;
         } else {
-            salida = `  if ("${node.val}" == trim(adjustl(to_lowercase(input(cursor:cursor + ${node.val.length - 1}))))) then`;
+            salida = `  if ("${node.val.toLowerCase()}" == to_lowercase(input(cursor:cursor + ${node.val.length - 1}))) then`;
         }
         salida +=`
         allocate( character(len=${node.val.length}) :: lexeme)
@@ -72,5 +72,41 @@ end module tokenizer
         cursor = cursor + ${node.val.length}
         return
     end if`;
+    }
+    visitCorchetes(node) {
+
+    }
+	visitEtiqueta(node) {
+
+    }
+	visitIdentificador(node) {
+
+    }
+	visitParentesis(node) {
+
+    }
+	visitPunto(node) {
+
+    }
+	visitNegacionPunto(node) {
+
+    }
+	visitConteoSimple(node) {
+
+    }
+	visitConteoRango(node) {
+
+    }
+	visitConteoOpciones(node) {
+
+    }
+	visitConteoRangoOpciones(node) {
+
+    }
+	visitContenido(node) {
+
+    }
+	visitNumero(node) {
+        
     }
 }
