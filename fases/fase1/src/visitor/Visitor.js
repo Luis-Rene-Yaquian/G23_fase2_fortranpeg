@@ -6,4 +6,16 @@ export default class Visitor {
 	visitUnion(node) {}
 	visitExpresion(node) {}
 	visitString(node) {}
+	visitCorchetes(node) {}
+	visitEtiqueta(node) {}
+	visitIdentificador(node) {}
+	visitParentesis(node) {}
+	visitPunto(node) {}
+	visitNegacionPunto(node) {}
+	visitConteoSimple(node) {}
+	visitConteoRango(node) {}
+	visitConteoOpciones(node) {}
+	visitConteoRangoOpciones(node) {}
+	visitContenido(node) {}
+	visitNumero(node) {}
 }
