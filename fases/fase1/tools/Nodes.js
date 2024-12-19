@@ -2,7 +2,7 @@ const nodes = {
     Producciones: ['id', 'expr', 'alias'],
     Opciones: ['exprs'],
     Union: ['exprs'],
-    Expresion: ['expr', 'label', 'qty'],
+    Expresion: ['isOptional', 'id', 'label', 'expr', 'qty'],
     String: ['val', 'isCase'],
     Corchetes: ['lista', 'isCase'],
     Etiqueta: ['isOptional', 'id', 'varios'],

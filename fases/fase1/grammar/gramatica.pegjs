@@ -36,73 +36,77 @@ producciones
 
 opciones
   = expr:union rest:(_ "/" _ @union)* {
-    console.log("Opciones reconocidas:", { expr, rest });
+    console.log("Opciones reconocidas:", [expr, ...rest]);
     return new n.Opciones([expr, ...rest]);
   }
 
 union
   = expr:expresion rest:(_ @expresion !(_ literales? _ "=") )* {
-    console.log("Unión reconocida:", { expr, rest });
+    console.log("Unión reconocidaa:", [expr, ...rest] );
     return new n.Union([expr, ...rest]);
   }
 
 expresion
-  = label:$(etiqueta/varios)? _ expr:expresiones _ qty:$([?+*]/conteo)? {
-    return new n.Expresion(expr, label, qty);
+  = isOptional:"@"?  id:(@identificador _ ":")? label:varios?  _ expr:expresiones _ qty:$([?+*]/conteo)? {
+        console.log("Expresión reconocida:", { isOptional, id, label, expr, qty });
+        return new n.Expresion(isOptional, id, label, expr, qty);
   }
 
-//Completar -- COMPLETADO
-etiqueta
-  = isOptional:(@"@" _)? id:identificador _ ":" varios:(varios)? {
-       console.log("Etiqueta reconocida:", { isOptional, id, varios });
-    return new n.Etiqueta(!!isOptional, id, varios || null);
-  }
+//Errres encontrados: podia venir @pluck:@"expresion"  o 
+/*expresion  = (etiqueta/varios)? _ expresiones _ ([?+*]/conteo)?
 
-varios = ("!"/"$"/"@"/"&")
+etiqueta = ("@")? _ id:identificador _ ":" (varios)?
+
+ varios = ("!"/"$"/"@"/"&")*/
+
+varios = ("!"/"&"/"$")
+
 
 //Completar
 expresiones
   //Completar
   = id:identificador {
-        console.log("Identificador reconocido:", id);
-    usos.push(id)
-        console.log("Identificador reconocido:", id);
-    return new n.Identificador(id); 
-  }
-  / val:$literales isCase:"i"? {return new n.String(val.replace(/['"]/g, ''), isCase);} //Listo
+      usos.push(id);
+      return new n.Identificador(id); 
+    }
+  / val:$literales isCase:"i"? {
+      return new n.String(val.replace(/['"]/g, ''), isCase);
+    } //Listo
   / "(" _ opciones _ ")" { 
       return new n.Parentesis(opciones); 
-  }           //COMPLETADO  opciones
-  / lista:corchetes isCase:"i"? //Completar
-  {return new n.Corchetes(lista, isCase)}
+    }           //COMPLETADO  opciones
+  / lista:corchetes isCase:"i"?{
+      return new n.Corchetes(lista, isCase) //Completar
+    }
   / "." { 
       return new n.Punto(); 
-  } //COMPLETADO
+    } //COMPLETADO
   / "!." { 
       return new n.NegacionPunto(); 
-  }//COMPLETADO
+    }//COMPLETADO
 
 //Completar
 conteo   = "|" _ valor:(numero / identificador) _ "|" { //conteo 
       return new n.ConteoSimple(valor);
-  }
+    }
   / "|" _ inicio:(numero / identificador)? _ ".." _ fin:(numero / id:identificador)? _ "|" { //min .. max
       return new n.ConteoRango(inicio, fin);
-  }
+    }
   / "|" _ valor:(numero / identificador)? _ "," _ opciones:opciones _ "|" { //conteo, delimitador
       return new n.ConteoOpciones(valor, opciones);
-  }
-  / "|" _ inicio:(numero / identificador)? _ ".." _ fin:(numero / identificador)? _ "," _ opciones:opciones _ "|" {// min .. max, conteo
+    }
+  / "|" _ inicio:(numero / identificador)? _ ".." _ fin:(numero / identificador)? _ "," _ opciones:opciones _ "|" {// min .. max, delimitador
       return new n.ConteoRangoOpciones(inicio, fin, opciones);
-  }
+    }
 
 
 // Regla principal que analiza corchetes con contenido
 
 //Completar, unicamnete guarda el contenido de los corchetes
 corchetes
-    = "[" contenido:(rango/contenido)+ "]" {
-        return `Entrada válida: [${input}]`;
+    = "[" contenido:(rango/texto)+ "]" {
+      
+        return [...new Set(contenido.reduce((acc, curr) => acc.concat(curr), []))];
     }
     //[0abc0-9]=[0,a,b,c,0,1,2,3,4,5,6,7,8,9]
 
@@ -128,18 +132,21 @@ caracter
 
 // Coincide con cualquier contenido que no incluya "]"
 
-//Completar
-contenido
-  = elementos:(corchete / texto)+ {
+/* GRAMATICAS ANTERIORES, DAN ERROR AL TRATAR DE RECONOCER EJ: [abc0-3], reconocimiento esperado: [a,b,c,1,2,3]
+                                                                  Salida que se obtiene: [a,b,c,1,-,3]
+
+Completar
+ contenido
+   = elementos:(corchete / texto)+ {
       return new n.Contenido(elementos);
   }
 
-corchete
-    = "[" contenido "]"
-
+ corchete
+    = "[" contenido "]" 
+*/
 
 texto
-    = [^\[\]]+
+    = [^\[\]]
 
 literales
   = '"' @stringDobleComilla* '"'
@@ -147,13 +154,16 @@ literales
 
 stringDobleComilla = !('"' / "\\" / finLinea) .
                     / "\\" escape
-                    / continuacionLinea
+                    //(se quitaron porque peggyjs no acepta cadenas con multilinea) igual no funcionaba xd
+                    // / continuacionLinea
 
 stringSimpleComilla = !("'" / "\\" / finLinea) .
                     / "\\" escape
-                    / continuacionLinea
+                    //(se quitaron porque peggyjs no acepta cadenas con multilinea) igual no funcionaba xd
+                    // / continuacionLinea
 
-continuacionLinea = "\\" secuenciaFinLinea
+//(se quitaron porque peggyjs no acepta cadenas con multilinea) igual no funcionaba xd
+// continuacionLinea = "\\" secuenciaFinLinea
 
 finLinea = [\n\r\u2028\u2029]
 
@@ -168,12 +178,13 @@ escape = "'"
         / "v"
         / "u"
 
-secuenciaFinLinea = "\r\n" / "\n" / "\r" / "\u2028" / "\u2029"
+//(se quitaron porque peggyjs no acepta cadenas con multilinea) igual no funcionaba xd
+// secuenciaFinLinea = "\r\n" / "\n" / "\r" / "\u2028" / "\u2029"
 
 //Completar
 numero
   = valor:[0-9]+ {
-      return new n.Numero(parseInt(valor.join(''), 10));
+      return parseInt(valor.join(''), 10);
   }
 
 identificador = [_a-z]i[_a-z0-9]i* { return text() }
