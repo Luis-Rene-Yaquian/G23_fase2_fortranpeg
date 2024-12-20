@@ -8,7 +8,7 @@ export class Producciones extends Node {
         this.id = id;
 		this.expr = expr;
 		this.alias = alias;
-    }
+    } 
 
     accept(visitor) {
         return visitor.visitProducciones(this);
@@ -65,27 +65,14 @@ export class String extends Node {
 }
     
 export class Corchetes extends Node {
-    constructor(lista, isCase) {
+    constructor(chars, isCase) {
         super();
-        this.lista = lista;
+        this.chars = chars;
 		this.isCase = isCase;
     }
 
     accept(visitor) {
         return visitor.visitCorchetes(this);
-    }
-}
-    
-export class Etiqueta extends Node {
-    constructor(isOptional, id, varios) {
-        super();
-        this.isOptional = isOptional;
-		this.id = id;
-		this.varios = varios;
-    }
-
-    accept(visitor) {
-        return visitor.visitEtiqueta(this);
     }
 }
     
@@ -134,9 +121,9 @@ export class NegacionPunto extends Node {
 }
     
 export class ConteoSimple extends Node {
-    constructor(valor) {
+    constructor(val) {
         super();
-        this.valor = valor;
+        this.val = val;
     }
 
     accept(visitor) {
@@ -157,9 +144,9 @@ export class ConteoRango extends Node {
 }
     
 export class ConteoOpciones extends Node {
-    constructor(valor, opciones) {
+    constructor(val, opciones) {
         super();
-        this.valor = valor;
+        this.val = val;
 		this.opciones = opciones;
     }
 
@@ -192,14 +179,15 @@ export class Contenido extends Node {
     }
 }
     
-export class Numero extends Node {
-    constructor(valor) {
+export class Rango extends Node {
+    constructor(bottom, top) {
         super();
-        this.valor = valor;
+        this.bottom = bottom;
+		this.top = top;
     }
 
     accept(visitor) {
-        return visitor.visitNumero(this);
+        return visitor.visitRango(this);
     }
 }
     

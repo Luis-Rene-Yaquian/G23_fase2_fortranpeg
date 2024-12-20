@@ -7,7 +7,6 @@ export default class Visitor {
 	visitExpresion(node) {}
 	visitString(node) {}
 	visitCorchetes(node) {}
-	visitEtiqueta(node) {}
 	visitIdentificador(node) {}
 	visitParentesis(node) {}
 	visitPunto(node) {}
@@ -17,5 +16,5 @@ export default class Visitor {
 	visitConteoOpciones(node) {}
 	visitConteoRangoOpciones(node) {}
 	visitContenido(node) {}
-	visitNumero(node) {}
+	visitRango(node) {}
 }

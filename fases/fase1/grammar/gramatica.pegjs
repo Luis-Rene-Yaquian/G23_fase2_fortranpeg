@@ -13,7 +13,6 @@
 
 gramatica
   = _ prods:producciones+ _ {
-      console.log("Producciones reconocidas:", prods);
     let duplicados = ids.filter((item, index) => ids.indexOf(item) !== index);
     if (duplicados.length > 0) {
         errores.push(new ErrorReglas("Regla duplicada: " + duplicados[0]));
@@ -24,12 +23,13 @@ gramatica
     if (noEncontrados.length > 0) {
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
+    console.log("Errores encontrados:", prods);
     return prods;
   }
 
 producciones
   = _ id:identificador _ alias:(literales)? _ "=" _ expr:opciones (_";")? {
-    console.log("Producción reconocida:", { id, alias, expr });
+    // console.log("Producción reconocida:", { id, alias, expr });
     ids.push(id);
     return new n.Producciones(id, expr, alias);
   }
@@ -47,8 +47,8 @@ union
   }
 
 expresion
-  = isOptional:"@"?  id:(@identificador _ ":")? label:varios?  _ expr:expresiones _ qty:$([?+*]/conteo)? {
-        console.log("Expresión reconocida:", { isOptional, id, label, expr, qty });
+  = isOptional:"@"?  id:(@identificador _ ":")? label:varios?  _ expr:expresiones _ qty:([?+*]/conteo)? {
+        // console.log("Expresión reconocida:", { isOptional, id, label, expr, qty });
         return new n.Expresion(isOptional, id, label, expr, qty);
   }
 
@@ -72,11 +72,11 @@ expresiones
   / val:$literales isCase:"i"? {
       return new n.String(val.replace(/['"]/g, ''), isCase);
     } //Listo
-  / "(" _ opciones _ ")" { 
+  / "(" _ opciones:opciones _ ")" { 
       return new n.Parentesis(opciones); 
     }           //COMPLETADO  opciones
-  / lista:corchetes isCase:"i"?{
-      return new n.Corchetes(lista, isCase) //Completar
+  / chars:corchetes isCase:"i"?{
+      return new n.Corchetes(chars, isCase) //Completar
     }
   / "." { 
       return new n.Punto(); 
@@ -87,13 +87,13 @@ expresiones
 
 //Completar
 conteo   = "|" _ valor:(numero / identificador) _ "|" { //conteo 
-      return new n.ConteoSimple(valor);
+      return new n.ConteoSimple(val);
     }
   / "|" _ inicio:(numero / identificador)? _ ".." _ fin:(numero / id:identificador)? _ "|" { //min .. max
       return new n.ConteoRango(inicio, fin);
     }
   / "|" _ valor:(numero / identificador)? _ "," _ opciones:opciones _ "|" { //conteo, delimitador
-      return new n.ConteoOpciones(valor, opciones);
+      return new n.ConteoOpciones(val, opciones);
     }
   / "|" _ inicio:(numero / identificador)? _ ".." _ fin:(numero / identificador)? _ "," _ opciones:opciones _ "|" {// min .. max, delimitador
       return new n.ConteoRangoOpciones(inicio, fin, opciones);
@@ -103,32 +103,41 @@ conteo   = "|" _ valor:(numero / identificador) _ "|" { //conteo
 // Regla principal que analiza corchetes con contenido
 
 //Completar, unicamnete guarda el contenido de los corchetes
-corchetes
-    = "[" contenido:(rango/texto)+ "]" {
+// corchetes
+//     = "[" contenido:(rango/texto)+ "]" {
       
-        return [...new Set(contenido.reduce((acc, curr) => acc.concat(curr), []))];
-    }
-    //[0abc0-9]=[0,a,b,c,0,1,2,3,4,5,6,7,8,9]
+//         return [...new Set(contenido.reduce((acc, curr) => acc.concat(curr), []))];
+//     }
+//     //[0abc0-9]=[0,a,b,c,0,1,2,3,4,5,6,7,8,9]
 
-// Regla para validar un rango como [A-Z]
-//Completar -- COMPLETADO 
-rango
-    = inicio:caracter "-" fin:caracter {
-        if (inicio.charCodeAt(0) > fin.charCodeAt(0)) {
-            throw new Error(`Rango inválido: [${inicio}-${fin}]`);
-        }
-        const result = [];
-        for (let i = inicio.charCodeAt(0); i <= fin.charCodeAt(0); i++) {
-          result.push(String.fromCodePoint(i));
-        }
-        return result;//retornar toda la lista 
-    }
+// // Regla para validar un rango como [A-Z]
+// //Completar -- COMPLETADO 
+// rango
+//     = inicio:caracter "-" fin:caracter {
+//         if (inicio.charCodeAt(0) > fin.charCodeAt(0)) {
+//             throw new Error(`Rango inválido: [${inicio}-${fin}]`);
+//         }
+//         const result = [];
+//         for (let i = inicio.charCodeAt(0); i <= fin.charCodeAt(0); i++) {
+//           result.push(String.fromCodePoint(i));
+//         }
+//         return result;//retornar toda la lista 
+//     }
 
+corchetes
+  = "[" @contenidoChars+ "]"
+
+
+contenidoChars
+  = bottom:$[^\[\]] "-" top:$[^\[\]] {
+    return new n.Rango(bottom, top);
+  }
+  / $[^\[\]]
 // Regla para caracteres individuales
 
 //Completado
-caracter
-    = [a-zA-Z0-9_ ] { return text()}
+// caracter
+//     = [a-zA-Z0-9_ ] { return text()}
 
 // Coincide con cualquier contenido que no incluya "]"
 
@@ -145,8 +154,8 @@ Completar
     = "[" contenido "]" 
 */
 
-texto
-    = [^\[\]]
+// texto
+//     = [^\[\]]
 
 literales
   = '"' @stringDobleComilla* '"'
@@ -183,7 +192,7 @@ escape = "'"
 
 //Completar
 numero
-  = valor:[0-9]+ {
+  = val:[0-9]+ {
       return parseInt(valor.join(''), 10);
   }
 
