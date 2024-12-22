@@ -115,16 +115,11 @@ module tokenizer
 
         if (LocalStack%isEmpty() .or. .not. valido) then
             allocate(character(len=5) :: lexeme)
+            print *, "error lexico en col ", cursor, ', "'//input(cursor:cursor)//'"'
             lexeme = "ERROR"
         else 
             lexeme = LocalStack%getTokens()
         end if
-        print *, "tokens"
-        print *, lexeme
-        print *, "end tokens"
-
-        print *, "error lexico en col ", cursor, ', "'//input(cursor:cursor)//'"'
-        lexeme = "ERROR"
     end function nextSym
 
     function Expression(texto, cursor, cola) result (valido)
@@ -353,7 +348,6 @@ module tokenizer
         do while (loopStack(loopStackPosition) >= 1)
             loopStack(loopStackPosition) = 0
             !!
-            print *, findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], texto(cursor:cursor), 1) > 0
             if (findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], texto(cursor:cursor), 1) > 0) then
                 call cola%enqueue(texto(cursor:cursor))
                 loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
@@ -366,7 +360,6 @@ module tokenizer
             valido = .true.
         end do
         loopStackPosition = loopStackPosition - 1
-        print *, "token ", texto(cursor:cursor)
         !! fin de la estructura del "*"
     end function whitespace
 end module tokenizer
