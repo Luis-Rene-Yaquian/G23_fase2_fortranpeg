@@ -19,7 +19,7 @@ for (const node of Object.keys(nodes)) {
 codeString += `}`;
 
 writeFileSync(path.join(__dirname, visitorDestination), codeString);
-console.log('Generated visitor Interface');
+// console.log('Generated visitor Interface');
 
 codeString = `
 // Auto-generated
@@ -38,8 +38,8 @@ export class ${name} extends Node {
     }
 }
     `;
-    console.log(`Generating ${name} node`);
+    // console.log(`Generating ${name} node`);
 }
 
 writeFileSync(path.join(__dirname, classesDestination), codeString);
-console.log('Done!');
+// console.log('Done!');

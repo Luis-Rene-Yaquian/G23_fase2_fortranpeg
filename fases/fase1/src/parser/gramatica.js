@@ -9,7 +9,7 @@
 
     // import { identificadores } from '../index.js'
 
-    import { ids, usos} from '../index.js'
+    import { ids, usos, usosRef} from '../index.js'
     import { ErrorReglas } from './error.js';
     import { errores } from '../index.js'
 
@@ -270,7 +270,7 @@ function peg$parse(input, options) {
     if (noEncontrados.length > 0) {
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
-    console.log("Errores encontrados:", prods);
+    // console.log("Errores encontrados:", prods);
     return prods;
   };
   var peg$f1 = function(id, alias, expr) {
@@ -279,11 +279,11 @@ function peg$parse(input, options) {
     return new n.Producciones(id, expr, alias);
   };
   var peg$f2 = function(expr, rest) {
-    console.log("Opciones reconocidas:", [expr, ...rest]);
+    // console.log("Opciones reconocidas:", [expr, ...rest]);
     return new n.Opciones([expr, ...rest]);
   };
   var peg$f3 = function(expr, rest) {
-    console.log("Unión reconocidaa:", [expr, ...rest] );
+    // console.log("Unión reconocidaa:", [expr, ...rest] );
     return new n.Union([expr, ...rest]);
   };
   var peg$f4 = function(isOptional, id, label, expr, qty) {
@@ -291,8 +291,10 @@ function peg$parse(input, options) {
         return new n.Expresion(isOptional, id, label, expr, qty);
   };
   var peg$f5 = function(id) {
+      let idTemp = new n.Identificador(id);
       usos.push(id);
-      return new n.Identificador(id); 
+      usosRef.push(idTemp);
+      return idTemp; 
     };
   var peg$f6 = function(val, isCase) {
       return new n.String(val.replace(/['"]/g, ''), isCase);

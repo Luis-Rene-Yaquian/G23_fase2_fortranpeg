@@ -5,6 +5,7 @@ import { ErrorReglas } from './parser/error.js';
 
 export let ids = [];
 export let usos = [];
+export let usosRef = [];
 export let errores = [];
 
 // Crear el editor principal
@@ -29,10 +30,18 @@ let decorations = [];
 const analizar = () => {
     const entrada = editor.getValue();
     ids.length = 0;
+    usosRef.length = 0;
     usos.length = 0;
     errores.length = 0;
     try {
-        const cst = parse(entrada);
+        let cst = parse(entrada);
+        for (let i = 0; i < usosRef.length; i++) {
+            for (let j = 0; j < cst.length; j++) {
+                if (usosRef[i].id === cst[j].id) {
+                    usosRef[i] = cst[j];
+                }
+            }
+        }
 
         if (errores.length > 0) {
             salida.setValue(`Error: ${errores[0].message}`);

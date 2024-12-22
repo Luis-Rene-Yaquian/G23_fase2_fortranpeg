@@ -4,7 +4,7 @@
 
     // import { identificadores } from '../index.js'
 
-    import { ids, usos} from '../index.js'
+    import { ids, usos, usosRef} from '../index.js'
     import { ErrorReglas } from './error.js';
     import { errores } from '../index.js'
 
@@ -23,7 +23,7 @@ gramatica
     if (noEncontrados.length > 0) {
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
-    console.log("Errores encontrados:", prods);
+    // console.log("Errores encontrados:", prods);
     return prods;
   }
 
@@ -36,13 +36,13 @@ producciones
 
 opciones
   = expr:union rest:(_ "/" _ @union)* {
-    console.log("Opciones reconocidas:", [expr, ...rest]);
+    // console.log("Opciones reconocidas:", [expr, ...rest]);
     return new n.Opciones([expr, ...rest]);
   }
 
 union
   = expr:expresion rest:(_ @expresion !(_ literales? _ "=") )* {
-    console.log("Unión reconocidaa:", [expr, ...rest] );
+    // console.log("Unión reconocidaa:", [expr, ...rest] );
     return new n.Union([expr, ...rest]);
   }
 
@@ -66,8 +66,10 @@ varios = ("!"/"&"/"$")
 expresiones
   //Completar
   = id:identificador {
+      let idTemp = new n.Identificador(id);
       usos.push(id);
-      return new n.Identificador(id); 
+      usosRef.push(idTemp);
+      return idTemp; 
     }
   / val:$literales isCase:"i"? {
       return new n.String(val.replace(/['"]/g, ''), isCase);

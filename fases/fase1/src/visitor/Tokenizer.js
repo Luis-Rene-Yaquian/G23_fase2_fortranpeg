@@ -1,8 +1,13 @@
 import Visitor from './Visitor.js';
-import { Rango } from './CST.js';
+import * as n from '../visitor/CST.js';
+let noTerminals = [];
+let firstNonTerminal = false;
 
 export default class Tokenizer extends Visitor {
     generateTokenizer(grammar) {
+        //a los no terminales le asignamos las grammar que son las producciones
+        noTerminals = grammar;
+        // console.log("grammar en generateTokenizer: ",grammar)
         return `
 module tokenizer
     implicit none
@@ -17,18 +22,21 @@ module tokenizer
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
         integer :: i
+        logical :: salida
 
         if (cursor > len(input)) then
             allocate( character(len=3) :: lexeme )
             lexeme = "EOF"
             return
         end if
+        salida = ${grammar[0].id}(input, cursor)
 
-    ${grammar.map((produccion) => produccion.accept(this)).join('\n')}
-
+        
         print *, "error lexico en col ", cursor, ', "'//input(cursor:cursor)//'"'
         lexeme = "ERROR"
-    end function nextSym
+        end function nextSym
+
+        ${grammar.map((produccion) => produccion.accept(this)).join('\n')}
 
     function to_lowercase(str) result(lower)
         character(len=*), intent(in) :: str
@@ -54,12 +62,26 @@ end module tokenizer
         return node.expr.accept(this);
     }
     visitOpciones(node) {
+        let salida = " if "
         return node.exprs.map((node) => node.accept(this)).join('\n');
     }
     visitUnion(node) {//recorrer toda la lista 
         return node.exprs.map((node) => node.accept(this)).join('\n');
     }
     visitExpresion(node) {
+        if (!firstNonTerminal){
+            firstNonTerminal = node;
+        }
+        if (node.expr instanceof n.Identificador) {
+            //entonces es un no terminal, debemos de obtenerlo de las producciones
+            let noTerminal = noTerminals.find((produccion) => produccion.id === node.expr.id);
+            console.log("se sustituyo el no terminal: ", noTerminal.id)
+            if (noTerminal === undefined) {
+                console.log("no terminal: ", noTerminals)
+                throw new Error('No se encontro el no terminal');
+            }
+            node.expr = noTerminal.expr;
+        }
         let salida = ""
         if (!(node.qty ==null || node.qty == undefined || node.qty == '')) {
             if (node.qty == '*') {
@@ -70,7 +92,8 @@ end module tokenizer
                     loopStack(loopStackPosition) = 0
                     ${node.expr.accept(this)}
                 end do
-                loopStackPosition = loopStackPosition - 1`
+                loopStackPosition = loopStackPosition - 1
+                valido = .true.`
             } else if (node.qty == '+') {
                 salida = `
                 loopStackPosition = loopStackPosition + 1
@@ -105,10 +128,6 @@ end module tokenizer
         return salida;
     }
     visitString(node) {
-        console.log("length en vstring")
-        console.log("aqui está el indefinido1: "+node === undefined)
-        console.log("aqui está el indefinido2"+ node.val === undefined)
-        
         let salida = ''
         if (node.isCase !== undefined) {
             salida = `  if ("${node.val}" == input(cursor:cursor + ${node.val.length - 1})) then`;
@@ -138,14 +157,14 @@ end module tokenizer
     }
 
     visitCorchetes(node) {
-        console.log(node)
+        // console.log(node)
         return `
         i = cursor
         ${this.generateCaracteres(
             node.chars.filter((node) => typeof node === 'string')
         )}
         ${node.chars
-            .filter((node) => node instanceof Rango)
+            .filter((node) => node instanceof n.Rango)
             .map((range) => range.accept(this))
             .join('\n')}
             `;
