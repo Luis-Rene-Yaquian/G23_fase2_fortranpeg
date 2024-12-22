@@ -2,7 +2,7 @@ import Visitor from './Visitor.js';
 import * as n from '../visitor/CST.js';
 let noTerminals = [];
 let firstNonTerminal = false;
-let inBucle = false;
+let inBucle = [];
 let zeroOrMore = false;
 let OneOrMore=false;
 let ZeroOrOne = false;
@@ -12,7 +12,7 @@ export default class Tokenizer extends Visitor {
         //a los no terminales le asignamos las grammar que son las producciones
         noTerminals = grammar;
         // console.log("grammar en generateTokenizer: ",grammar)
-        let texto = `
+        let salida = `
 module module_Queue
     implicit none
     type :: node
@@ -94,7 +94,7 @@ module module_Queue
             tokensTemp = current%token
     
             ! Redimensionar tokens para concatenar el siguiente token
-            tokens = tokens // "\n" // tokensTemp
+            tokens = tokens // "\\n" // tokensTemp
         end do
     end function getTokens
     
@@ -120,8 +120,15 @@ module tokenizer
             return
         end if
 
-        !!este es un id
-        valido = ${grammar[0].id}(input, cursor, LocalStack)
+        !!este es un id`
+            if(!(grammar[0].alias == null || grammar[0].alias == undefined || grammar[0].alias == '')){
+                //guardar el id y el alias
+                salida += `valido = ${grammar[0].alias}(input, cursor, cola) result (valido)`
+            } else{
+                //guardar id id 
+                salida += `valido = ${grammar[0].id}(input, cursor, cola) result (valido)`
+            }
+            salida +=`
 
         if (LocalStack%isEmpty() .or. .not. valido) then
             allocate(character(len=5) :: lexeme)
@@ -132,28 +139,45 @@ module tokenizer
         end if
     end function nextSym
 `
-        
+        console.log("expresionesss: ",grammar)
         for (let i = 0; i < grammar.length; i++) {
-            texto +=`
-            function ${grammar[i].id}(input, cursor, cola) result (valido)
-            character(*),intent(in) :: input
-            integer, intent(inout) :: cursor
-            type(Queue), intent(inout) :: cola
-            character(len=5) :: error = "ERROR"
-            integer, dimension(20) :: matchStack
-            integer, dimension(20) :: loopStack
-            integer :: loopStackPosition = 1
-            type(node), pointer:: puntero
-            integer :: cursorTemporal
-            logical:: valido
-            valido = .false.
+            console.log("alias")
+            console.log(grammar.alia)
+            if(!(grammar[i].alias == null || grammar[i].alias == undefined || grammar[i].alias == '')){
+                //guardar el id y el alias
+                salida += `function ${grammar[i].alias}(input, cursor, cola) result (valido)`
+            } else{
+                //guardar id id 
+                salida +=`function ${grammar[i].id}(input, cursor, cola) result (valido)`
+            }
+            salida +=`
+        character(*),intent(in) :: input
+        integer, intent(inout) :: cursor
+        type(Queue), intent(inout) :: cola
+        character(len=5) :: error = "ERROR"
+        character(len=:), allocatable :: lexeme
+
+        !!variable para almacenar la logica de *,+,?
+        integer, dimension(20) :: matchStack = 0
+        integer, dimension(20) :: loopStack = 0
+        integer :: loopStackPosition = 1
+
+        !!variable para almcenar la opcion
+        logical, dimension(20) :: firstOptionalFounded = .false.
+        integer :: localFirstOptionalFounded = 1
+
+        type(node), pointer:: puntero
+        integer :: cursorTemporal
+        logical:: valido
+        valido = .false.
             `
-            texto += grammar[i].accept(this);
-            texto += `
-            end function ${grammar[i].id}
+            salida += grammar[i].accept(this);
+            salida += `
+    end function 
             `
         }
-`
+        //("/" / "*")
+salida += `
     function to_lowercase(str) result(lower)
         character(len=*), intent(in) :: str
         integer :: i, char_code
@@ -170,88 +194,61 @@ module tokenizer
         end do
     end function to_lowercase
 
-end module tokenizer 
-        `;
+end module tokenizer `
+        return salida;
     }
 
     visitProducciones(node) {
         return node.expr.accept(this);
     }
-    // if (input(cursor:cursor) == '+') then
-    //             call cola%enqueue(input(cursor:cursor))
-    //             cursor = cursor + 1
-    //             valido = .true.
-    //         else if (input(cursor:cursor) == '-') then
-    //             call cola%enqueue(input(cursor:cursor))
-    //             cursor = cursor + 1
-    //             valido = .true.
-    //         else
-    //             valido = .false.
-    //             exit
-    //         end if 
 
-    /*
-        opciones = terminal notermial if(terminal)
-                /noterminal dsafas fasd         else if(noterminal(input,,cursor,cola))
-                /suma else if(suma(input, cursor, cola)) 
-        suma = 8 + 5
-    */ 
     visitOpciones(node) {
-        
-        let salida 
-        for (let index = 0; index < node.exprs.length; index++) {
-            if (index==0) {
-                salida = `
-                if ${node.exprs[index].accept(this)}` 
-                salida+= `
-                `            
-                if(node.exprs.length==1){
-                    salida +=`
-                end if`
-                }
-                continue
+        let salida = `
+        localFirstOptionalFounded = localFirstOptionalFounded + 1
+        firstOptionalFounded(localFirstOptionalFounded) = .false.
+        `;
+        for (let i = 0; i < node.exprs.length; i++) {
+            salida += node.exprs[i].exprs[0].accept(this); //solo analizamos la primera expresion de la i opcion
+            salida += `
+            if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
+                firstOptionalFounded(localFirstOptionalFounded) = .true.
+                !pondremos un do para absorver un posible return de error y sea un exit
+                do
+                `;
+            inBucle.push(true);
+            for (let j = 1; j < node.exprs[i].exprs.length; j++) {
+                salida += node.exprs[i].exprs[j].accept(this);
             }
-            salida+= `
-            else if ${node.exprs[index].accept(this)}
-            `
+            salida += `
+                exit !salimos del do
+                end do
+            end if
+            `;
+            inBucle.pop();
         }
-        salida+= `
-        else
+        salida += `
+        if (.not. firstOptionalFounded(localFirstOptionalFounded)) then
             valido = .false.
+        end if
+        firstOptionalFounded(localFirstOptionalFounded) = .false.
+        localFirstOptionalFounded = localFirstOptionalFounded - 1
         `
-        if (inBucle){
-            salida+=`exit`
-        }
-        salida+= `end if`
-        return salida;//
+
+        return salida;
     }
     // Completado
     visitUnion(node) {
         let salida = '';
+        
         for (let index = 0; index < node.exprs.length; index++) {
-            if (index == 0) {
-                salida = `
-                (${node.exprs[index].accept(this)}) then
-                    valido = .true.
-                    return
-                end if
-             !!/////////////////// No estamos seguro si funciona para ciclos/falta la validacion para el ciclo jaja /////////////////////////
-        `}
+            //como union solo puede almacenar de tipo expresion
+            salida +=node.exprs[index].accept()
         }
-        salida += `
-            else
-                valido = .false.
-        `;
-        if (inBucle) {
-            salida += `
-                exit
-            `;
-        }
-        salida += `
-            end if
-        `;
         return salida;
     }
+
+
+
     visitExpresion(node) {
         ///IMPORTANTE no lo logro resolver
         //puede venir identificador, parentesis o no terminal junto a cuantificadores xd
@@ -274,35 +271,95 @@ end module tokenizer
         let salida = ""
         if (!(node.qty ==null || node.qty == undefined || node.qty == '')) {
             if (node.qty == '*') {
-                inBucle = true;
-                salida =`${node.expr.accept}`
-
-                inBucle = false
-            } else if (node.qty == '+') {
-                salida = `
+                inBucle.push(true);
+                salida =`
                 loopStackPosition = loopStackPosition + 1
                 loopStack(loopStackPosition) = 1
                 do while (loopStack(loopStackPosition) >= 1)
+                    puntero => cola%tail  
+                    cursorTemporal = cursor
                     loopStack(loopStackPosition) = 0
+                    !!
                     ${node.expr.accept(this)}
-                    if (loopStack(loopStackPosition) == 0) then
-                        print *, "error, la expresion no cumple con '+' ", cursor, ', "'//input(cursor:cursor)//'"'
-                        lexeme = "ERROR"
-                        return
-                    end if
-                end do`
-            } else if (node.qty == '?') {
+                    !!
+                    valido = .true.
+                end do
+                loopStackPosition = loopStackPosition - 1
+                if (valido .eqv. .false.) then
+                    cola%tail => puntero
+                    cola%tail%next => null() 
+                    cursor = cursorTemporal
+                end if`
+                inBucle.pop();
+            } else if (node.qty == '+') {
+                inBucle.push(true);
                 salida = `
-                loopStackPosition += 1
+                loopStackPosition = loopStackPosition + 1
                 loopStack(loopStackPosition) = 0
-                do while (loopStack(loopStackPosition) == 1 .and. loopStack(loopStackPosition) == 0)
+                matchStack(loopStackPosition) = 0
+                valido = .false.
+                do while (.true.)
+                    puntero => cola%tail  
+                    cursorTemporal = cursor
+                    matchStack(loopStackPosition) = 0
+                    !!
                     ${node.expr.accept(this)}
-                    if (loopStack(loopStackPosition) >= 2) then
-                        print *, "error, la expresion no cumple con '?' ", cursor, ', "'//input(cursor:cursor)//'"'
-                        lexeme = "ERROR"
+                    !!
+                    if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
+                        print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
+                        call cola%enqueue(error//","//input(cursor:cursor))
+                        valido = .false.
                         return
                     end if
-                end do`
+                    if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) /= 0) then
+                        valido = .true.
+                        exit
+                    end if
+                    loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+                end do
+                matchStack(loopStackPosition) = 0
+                loopStackPosition = loopStackPosition - 1
+                if (valido .eqv. .false.) then
+                    cola%tail => puntero
+                    cola%tail%next => null() 
+                    cursor = cursorTemporal
+                end if`
+                inBucle.pop();
+            } else if (node.qty == '?') {
+                inBucle.push(true);
+                salida = `
+            loopStackPosition = loopStackPosition + 1
+            loopStack(loopStackPosition) = 0
+            matchStack(loopStackPosition) = 0
+            valido = .false.
+            do while (.true.)
+                puntero => cola%tail  
+                cursorTemporal = cursor
+                matchStack(loopStackPosition) = 0
+                !!
+                ${node.expr.accept(this)}
+                !!
+                if (loopStack(loopStackPosition) <= 1) then
+                    if (matchStack(loopStackPosition) == 0) then
+                        valido = .true.
+                        exit
+                    else
+                        print *, "error, la expresion no cumple con '?' ", cursor, ', "',input(cursor:cursor),'"'
+                        call cola%enqueue(error//","//input(cursor:cursor))
+                        valido = .false.
+                        return
+                    end if
+                end if
+                loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+            end do
+            matchStack(loopStackPosition) = 0
+            loopStackPosition = loopStackPosition - 1
+            if (valido .eqv. .false.) then
+                cola%tail => puntero
+                cola%tail%next => null() 
+                cursor = cursorTemporal
+            end if`
+            inBucle.pop();
             } else {
                 throw new Error('signo de cantidad invalido');
             }
@@ -324,7 +381,10 @@ end module tokenizer
             allocate(character(len=${node.val.length}) :: lexeme)
             call cola%enqueue(input(cursor:cursor + ${node.val.length - 1}))
             lexeme = input(cursor:cursor + ${node.val.length - 1})
-            cursor = cursor + ${node.val.length}`;
+            cursor = cursor + ${node.val.length}
+            matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
+            valido = .true.
+            `;
         
         if (inBucle) {
             salida += `
@@ -336,46 +396,18 @@ end module tokenizer
                 return`;
         }
     
+        //     else
+        //         cursor = cursor + 1
         salida += `
-            else
-                cursor = cursor + 1
             end if`;
     
         return salida;
     };
-    
-
-    /* visitString(node) {
-    let salida = '';
-    if (node.isCase !== undefined) {
-        salida = `if (input(cursor:cursor + ${node.val.length - 1}) == "${node.val}") then`;
-    } else {
-        salida = `if (to_lowercase(input(cursor:cursor + ${node.val.length - 1})) == "${node.val.toLowerCase()}") then`;
-    }
-    salida += `
-    allocate(character(len=${node.val.length}) :: lexeme)
-    call cola%enqueue(input(cursor:cursor + ${node.val.length - 1}))
-    lexeme = input(cursor:cursor + ${node.val.length - 1})
-    cursor = cursor + ${node.val.length}
-    valido = .true.`;
-    if (inBucle) {
-        salida += `
-        exit`;
-    } else {
-        salida += `
-        return`;
-    }
-    salida += `
-    end if`;
-    return salida;
-} */
-
-
-
-
 
     // Completado
     generateCaracteres(chars) {
+        console.log("generate character-lista de caracteres que llegan: ")
+        console.log(chars)
         if (chars.length == 0) return '';
         return `
         if (findloc([${chars
@@ -388,22 +420,6 @@ end module tokenizer
             `;
     }
     
-    /*
-    generateCaracteres(chars) {
-        if (chars.length == 0) return '';
-        return `
-    if (findloc([${chars
-        .map((char) => `"${char}"`)
-        .join(', ')}], input(i:i), 1) > 0) then
-        lexeme = input(cursor:i)
-        cursor = i + 1
-        return
-    end if
-        `;
-    }
-
-*/
-
 // Completado
     visitCorchetes(node) {
         let salida = `
@@ -425,21 +441,6 @@ end module tokenizer
         }
         return salida;
     }
-    /*
-    visitCorchetes(node) {
-        // console.log(node)
-        return `
-        i = cursor
-        ${this.generateCaracteres(
-            node.chars.filter((node) => typeof node === 'string')
-        )}
-        ${node.chars
-            .filter((node) => node instanceof n.Rango)
-            .map((range) => range.accept(this))
-            .join('\n')}
-            `;
-    }
-*/
 
     visitRango(node) {
         return `
@@ -451,35 +452,37 @@ end module tokenizer
             `;
     }
 
-    visitIdentificador(node) {
-        let salida =`
-        if ("${node.id}" == input(cursor:cursor + ${node.id.length - 1})) then
-            allocate( character(len=${node.id.length}) :: lexeme)
-            lexeme = input(cursor:cursor + ${node.id.length - 1})
-            cursor = cursor + ${node.id.length}
-        end if`;
-    return salida;
-    ;
+	visitIdentificador(node) {
+
+
+        // Se busca en noTerminals si existe una producción con ese id
+        const produccion = noTerminals.find(p => p.id === node.id);
+
+        if (produccion) {
+            return `valido = ${produccion.alias}(input, cursor, cola)`;
+        } else {
+            return `valido = ${node.id}(input, cursor, cola)`;
+        }
     }
-    visitParentesis(node) {
+	visitParentesis(node) {
         return node.contenido.accept(this);
     }
-    visitPunto(node) {
+	visitPunto(node) {
 
     }
-    visitNegacionPunto(node) {
+	visitNegacionPunto(node) {
 
     }
-    visitConteoSimple(node) {
+	visitConteoSimple(node) {
 
     }
-    visitConteoRango(node) {
+	visitConteoRango(node) {
 
     }
-    visitConteoOpciones(node) {
+	visitConteoOpciones(node) {
 
     }
-    visitConteoRangoOpciones(node) {
+	visitConteoRangoOpciones(node) {
 
     }
 }

@@ -23,7 +23,7 @@ gramatica
     if (noEncontrados.length > 0) {
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
-    // console.log("Errores encontrados:", prods);
+    console.log("gramatica, producciones:", prods);
     return prods;
   }
 
@@ -31,6 +31,10 @@ producciones
   = _ id:identificador _ alias:(literales)? _ "=" _ expr:opciones (_";")? {
     // console.log("Producción reconocida:", { id, alias, expr });
     ids.push(id);
+    if (alias) {
+      alias = alias.toString().replace(/['"]/g, '');
+      return new n.Producciones(id, expr, alias.replace(/['"]/g, ''));
+    }
     return new n.Producciones(id, expr, alias);
   }
 
@@ -131,10 +135,12 @@ corchetes
 
 
 contenidoChars
-  = bottom:$[^\[\]] "-" top:$[^\[\]] {
+  = "\\" escape:escape {return `\\${escape}`}
+  /  bottom:$[^\[\]] "-" top:$[^\[\]] {
     return new n.Rango(bottom, top);
   }
   / $[^\[\]]
+  
 // Regla para caracteres individuales
 
 //Completado
@@ -185,7 +191,7 @@ escape = "'"
         / "f"
         / "n"
         / "r"
-        / "t"
+        / "t" {return `achar(${text().toCharCode(0)})`}
         / "v"
         / "u"
 

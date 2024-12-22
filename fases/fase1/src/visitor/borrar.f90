@@ -97,9 +97,6 @@ module tokenizer
         character(len=*), intent(in) :: input
         integer, intent(inout) :: cursor
         character(len=:), allocatable :: lexeme
-        integer, dimension(20) :: loopStack
-        integer :: loopStackPosition = 1
-        integer :: i
         type(Queue) :: LocalStack
         logical:: valido
         valido = .false.
@@ -122,20 +119,29 @@ module tokenizer
         end if
     end function nextSym
 
-    function Expression(texto, cursor, cola) result (valido)
-        character(*),intent(in) :: texto
+    function Expression(input, cursor, cola) result (valido)
+        character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
         character(len=5) :: error = "ERROR"
         integer, dimension(20) :: matchStack
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
+        type(node), pointer:: puntero
+        integer :: cursorTemporal
         logical:: valido
         valido = .false.
 
-        valido = term(texto, cursor, cola)
+        !!estructura de funcion
+
+        valido = term(input, cursor, cola)
         if (.not. valido) then
-            return
+            return  !| cycle
+        end if
+
+        valido = whitespace(input, cursor, cola)
+        if (.not. valido) then
+            return  !| cycle
         end if
 
         !! estructura del "*"
@@ -143,51 +149,67 @@ module tokenizer
         loopStackPosition = loopStackPosition + 1
         loopStack(loopStackPosition) = 1
         do while (loopStack(loopStackPosition) >= 1)
+            puntero => cola%tail
+            cursorTemporal = cursor
             loopStack(loopStackPosition) = 0
             !!
-            if (whitespace(texto, cursor, cola)) then
+            if (whitespace(input, cursor, cola) .and. .not. valido) then
+                matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
                 valido = .true.
+            else 
+                exit
             end if
 
-            if (texto(cursor:cursor) == '+') then
-                call cola%enqueue(texto(cursor:cursor))
+            if (input(cursor:cursor) == '+') then
+                call cola%enqueue(input(cursor:cursor))
                 cursor = cursor + 1
                 valido = .true.
-            else if (texto(cursor:cursor) == '-') then
-                call cola%enqueue(texto(cursor:cursor))
+            else if (input(cursor:cursor) == '-') then
+                call cola%enqueue(input(cursor:cursor))
                 cursor = cursor + 1
                 valido = .true.
             else
                 valido = .false.
+                exit
             end if 
 
-            if (whitespace(texto, cursor, cola)) then
+            if (whitespace(input, cursor, cola)) then
                 valido = .true.
             end if
 
-            if (Factor(texto, cursor, cola)) then
+            if (Factor(input, cursor, cola)) then
                 valido = .true.
             end if
             !!
             valido = .true.
+            
         end do
         loopStackPosition = loopStackPosition - 1
+        if (valido .eqv. .false.) then
+            cola%tail => puntero
+            cola%tail%next => null() 
+            cursor = cursorTemporal
+        end if
+        valido = .true.
         !! fin de la estructura del "*"
+        !!estructura de funcion
 
     end function Expression
 
-    function Term(texto, cursor, cola) result (valido)
-        character(*),intent(in) :: texto
+    function Term(input, cursor, cola) result (valido)
+        character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
         character(len=5) :: error = "ERROR"
         integer, dimension(20) :: matchStack
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
+        type(node), pointer:: puntero
+        integer :: cursorTemporal
         logical:: valido
         valido = .false.
 
-        valido = Factor(texto, cursor, cola)
+        valido = Factor(input, cursor, cola)
         if (.not. valido .and. loopStackPosition==1 ) then
             call cola%enqueue(error)
             return
@@ -198,62 +220,73 @@ module tokenizer
         loopStackPosition = loopStackPosition + 1
         loopStack(loopStackPosition) = 1
         do while (loopStack(loopStackPosition) >= 1)
+            puntero => cola%tail
+            cursorTemporal = cursor
             loopStack(loopStackPosition) = 0
             !!
-            if (whitespace(texto, cursor, cola)) then
+            if (whitespace(input, cursor, cola)) then
                 valido = .true.
             end if
 
-            if (texto(cursor:cursor) == '*') then
-                call cola%enqueue(texto(cursor:cursor))
+            ! ("*" / "/")
+
+            if (input(cursor:cursor) == '*') then
+                call cola%enqueue(input(cursor:cursor))
                 cursor = cursor + 1
                 valido = .true.
-            else if (texto(cursor:cursor) == '/') then
-                call cola%enqueue(texto(cursor:cursor))
+            else if (input(cursor:cursor) == '/') then
+                call cola%enqueue(input(cursor:cursor))
                 cursor = cursor + 1
                 valido = .true.
             else
                 valido = .false.
             end if 
 
-            if (whitespace(texto, cursor, cola)) then
+            if (whitespace(input, cursor, cola)) then
                 valido = .true.
             end if
 
-            if (Factor(texto, cursor, cola)) then
+            if (Factor(input, cursor, cola)) then
                 valido = .true.
             end if
             !!
             valido = .true.
         end do
         loopStackPosition = loopStackPosition - 1
+        if (valido .eqv. .false.) then
+            cola%tail => puntero
+            cola%tail%next => null() 
+            cursor = cursorTemporal
+        end if
         !! fin de la estructura del "*"
 
     end function Term
 
-    function Factor(texto, cursor, cola) result (valido)
-        character(*),intent(in) :: texto
+    function Factor(input, cursor, cola) result (valido)
+        character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
         character(len=5) :: error = "ERROR"
         integer, dimension(20) :: matchStack
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
+        type(node), pointer:: puntero
+        integer :: cursorTemporal
         logical:: valido
         valido = .false.
 
-        if (texto(cursor:cursor) == '(') then
-            call cola%enqueue(texto(cursor:cursor))
+        if (input(cursor:cursor) == '(') then
+            call cola%enqueue(input(cursor:cursor))
             cursor = cursor + 1
             valido = .true.
-            if (whitespace(texto, cursor, cola)) then
+            if (whitespace(input, cursor, cola)) then
                 valido = .true.
-                if (expression(texto, cursor, cola)) then
+                if (expression(input, cursor, cola)) then
                     valido = .true.
-                    if (whitespace(texto, cursor, cola)) then
+                    if (whitespace(input, cursor, cola)) then
                         valido = .true.
-                        if (texto(cursor:cursor) == ')') then
-                            call cola%enqueue(texto(cursor:cursor))
+                        if (input(cursor:cursor) == ')') then
+                            call cola%enqueue(input(cursor:cursor))
                             cursor = cursor + 1
                             valido = .true.
                         else
@@ -268,8 +301,8 @@ module tokenizer
             else
                 valido = .false.
             end if
-        else if  (whitespace(texto, cursor, cola)) then
-            if(Integer(texto, cursor, cola)) then
+        else if  (whitespace(input, cursor, cola)) then
+            if(Integer(input, cursor, cola)) then
                 valido = .true.
             else
                 valido = .false.
@@ -280,27 +313,31 @@ module tokenizer
 
     end function Factor
 
-    function Integer(texto, cursor, cola) result (valido)
-        character(*),intent(in) :: texto
+    function Integer(input, cursor, cola) result (valido)
+        character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
         character(len=5) :: error = "ERROR"
         integer, dimension(20) :: matchStack
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
+        type(node), pointer:: puntero
+        integer :: cursorTemporal
         logical:: valido
         valido = .false.
 
         !! estructura del "+"
         loopStackPosition = loopStackPosition + 1
-        loopStack(loopStackPosition) = 1
+        loopStack(loopStackPosition) = 0
         matchStack(loopStackPosition) = 0
         valido = .false.
         do while (.true.)
+            puntero => cola%tail  
+            cursorTemporal = cursor
             matchStack(loopStackPosition) = 0
             !!
-            if (achar(48) <= texto(cursor:cursor) .and. texto(cursor:cursor) <= achar(57)) then
-                call cola%enqueue(texto(cursor:cursor))
+            if (achar(48) <= input(cursor:cursor) .and. input(cursor:cursor) <= achar(57)) then
+                call cola%enqueue(input(cursor:cursor))
                 cursor = cursor + 1
                 matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
                 valido = .true.
@@ -309,8 +346,8 @@ module tokenizer
             end if
             !!
             if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
-                print *, "error, la expresion no cumple con '+' ", cursor, ', "',texto(cursor:cursor),'"'
-                call cola%enqueue(error//","//texto(cursor:cursor))
+                print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
+                call cola%enqueue(error//","//input(cursor:cursor))
                 valido = .false.
                 return
             end if
@@ -325,41 +362,79 @@ module tokenizer
         end do
         matchStack(loopStackPosition) = 0
         loopStackPosition = loopStackPosition - 1
+        if (valido .eqv. .false.) then
+            cola%tail => puntero
+            cola%tail%next => null() 
+            cursor = cursorTemporal
+        end if
         !! fin de la estructura del "+"
 
 
     end function Integer
 
-    function whitespace (texto, cursor, cola) result (valido)
-        character(*),intent(in) :: texto
+    function whitespace (input, cursor, cola) result (valido)
+        character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
+        type(node), pointer:: puntero
         character(len=5) :: error = "ERROR"
         integer, dimension(20) :: matchStack
         integer, dimension(20) :: loopStack
         integer :: loopStackPosition = 1
+        integer:: cursorTemporal
         logical:: valido
         valido = .false.
 
         !! estructura del "*"
 
+        ![abcd]*  ...
+        ![abcd]  ...
+
+        if (findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], input(cursor:cursor), 1) > 0) then
+            call cola%enqueue(input(cursor:cursor))
+            loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+            cursor = cursor + 1
+            valido = .true.
+        else
+            valido = .false.
+        end if
+
         loopStackPosition = loopStackPosition + 1
         loopStack(loopStackPosition) = 1
         do while (loopStack(loopStackPosition) >= 1)
+            puntero => cola%tail  
+            cursorTemporal = cursor
             loopStack(loopStackPosition) = 0
             !!
-            if (findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], texto(cursor:cursor), 1) > 0) then
-                call cola%enqueue(texto(cursor:cursor))
+            if (findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], input(cursor:cursor), 1) > 0) then
+                call cola%enqueue(input(cursor:cursor))
                 loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
                 cursor = cursor + 1
                 valido = .true.
-            else 
+            else
                 valido = .false.
+                exit 
+            end if
+
+            if (findloc([character(len=1) :: achar(32), achar(9), achar(10), achar(13)], input(cursor:cursor), 1) > 0) then
+                call cola%enqueue(input(cursor:cursor))
+                loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+                cursor = cursor + 1
+                valido = .true.
+            else  
+                valido = .false.
+                exit 
             end if
             !!
             valido = .true.
         end do
+        if (valido .eqv. .false.) then
+            cola%tail => puntero
+            cola%tail%next => null() 
+            cursor = cursorTemporal
+        end if
         loopStackPosition = loopStackPosition - 1
+        valido = .true.
         !! fin de la estructura del "*"
     end function whitespace
 end module tokenizer
