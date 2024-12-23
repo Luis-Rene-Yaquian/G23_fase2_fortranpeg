@@ -295,13 +295,18 @@ end module parser `
                 loopStackPosition = loopStackPosition + 1
                 loopStack(loopStackPosition) = 1
                 do while (loopStack(loopStackPosition) >= 1)
+                    valido=.false.
                     puntero => cola%tail  
                     cursorTemporal = cursor
-                    loopStack(loopStackPosition) = 0
+                    !loopStack(loopStackPosition) = 0
                     !!
                     ${node.expr.accept(this)}
                     !!
-                    valido = .true.
+                    if(valido .eqv. .false.) then
+                        valido =.true.
+                        exit
+                    end if
+                    !valido = .true.
                 end do
                 loopStackPosition = loopStackPosition - 1
                 if (valido .eqv. .false.) then
@@ -326,7 +331,7 @@ end module parser `
                     !!
                     if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
                         print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
-                        !call cola%enqueue(error//","//input(cursor:cursor))
+                        call cola%enqueue(error//","//input(cursor:cursor))
                         valido = .false.
                         return
                     end if
@@ -381,31 +386,33 @@ end module parser `
     // Completado
     visitString(node) {
         let salida = `
-        if (cursor > len(input)) then
-            valido = .false.
-            !print *, "error cursor en visitString", cursor
-            return
-        end if
-        `;
+            if (cursor > len(input)) then
+                valido = .false.
+                !print *, "error cursor en visitString", cursor
+                return
+            end if
+            `;
         if (node.isCase !== undefined) {
+            // Case sensitive
             salida += `
-        if ("${node.val}" == input(cursor:cursor + ${node.val.length - 1})) then`;
+            if ("${node.val}" == input(cursor:cursor + ${node.val.length - 1})) then`;
         } else {
+            // Case insensitive - convertir ambas cadenas a minúsculas
             salida += `
-        if ("${node.val.toLowerCase()}" == to_lowercase(input(cursor:cursor + ${node.val.length - 1}))) then`;
+            if (to_lowercase("${node.val}") == to_lowercase(input(cursor:cursor + ${node.val.length - 1}))) then`;
         }
         salida += `
-            call cola%enqueue(input(cursor:cursor + ${node.val.length - 1}))
-            cursor = cursor + ${node.val.length}
-            matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
-            valido = .true.
-            
-            `;
+                call cola%enqueue(input(cursor:cursor + ${node.val.length - 1}))
+                cursor = cursor + ${node.val.length}
+                matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
+                valido = .true.
+                
+                `;
         salida += `
-        else
-            valido = .false.
-            !${inBucle[inBucle.length - 1] ? 'exit' : ''}
-        end if`;
+            else
+                valido = .false.
+                !${inBucle[inBucle.length - 1] ? 'exit' : ''}
+            end if`;
         
         return salida;
     };
@@ -445,7 +452,7 @@ end module parser `
             .filter((node) => node instanceof n.Rango)
             .map((range) => range.accept(this))
             .join('\n')}
-            valido = .true.
+            !valido = .true.
             !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
         `; //se cambio por else en visit rango y generatecharacter tambien valido .true. funciona con gramatica de enunciado y valido .false. funciona en gramatica de prueba
         return salida;
@@ -458,7 +465,8 @@ end module parser `
             print *, "error cursor en visit rango", cursor
             return 
         end if
-        if (input(i:i) >= "${node.bottom}" .and. input(i:i) <= "${node.top}") then
+        if ((input(i:i) >= "${node.bottom}" .and. input(i:i) <= "${node.top}") .or. &
+            (input(i:i) >= "${node.bottom.toUpperCase()}" .and. input(i:i) <= "${node.top.toUpperCase()}")) then
             call cola%enqueue(input(cursor:i))
             matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
             cursor = i + 1
