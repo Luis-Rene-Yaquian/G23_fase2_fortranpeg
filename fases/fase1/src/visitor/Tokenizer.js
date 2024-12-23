@@ -226,12 +226,12 @@ end module parser `
         for (let i = 0; i < node.exprs.length; i++) { //prod = a b c/
             salida += node.exprs[i].exprs[0].accept(this); //solo analizamos la primera expresion de la i opcion
             salida += `
-            if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
-                firstOptionalFounded(localFirstOptionalFounded) = .true.
-                !pondremos un do para absorver un posible return de error y sea un exit
-                do
+        if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
+            firstOptionalFounded(localFirstOptionalFounded) = .true.
+            !pondremos un do para absorver un posible return de error y sea un exit
+            do
                 `;
-            inBucle = [];
+            //inBucle = [];
             for (let j = 1; j < node.exprs[i].exprs.length; j++) {
                 salida += node.exprs[i].exprs[j].accept(this);
             }
@@ -239,7 +239,12 @@ end module parser `
                 exit !salimos del do
                 end do
             end if
-            `;
+            ${inBucle[inBucle.length - 1] ? `
+            if(valido .eqv. .false.)then
+                exit
+            end if
+            ` : ' '}`;
+
             inBucle.pop();
         }
         salida += `
@@ -321,7 +326,7 @@ end module parser `
                     !!
                     if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
                         print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
-                        call cola%enqueue(error//","//input(cursor:cursor))
+                        !call cola%enqueue(error//","//input(cursor:cursor))
                         valido = .false.
                         return
                     end if
@@ -399,7 +404,7 @@ end module parser `
         salida += `
         else
             valido = .false.
-            !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
+            !${inBucle[inBucle.length - 1] ? 'exit' : ''}
         end if`;
         
         return salida;
@@ -425,7 +430,7 @@ end module parser `
             cursor = i + 1
             valido = .true.
             !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        else
+        end if
             `;
     }
     
@@ -441,8 +446,8 @@ end module parser `
             .map((range) => range.accept(this))
             .join('\n')}
             valido = .true.
-            ${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        end if`; //se cambio por else en visit rango y generatecharacter tambien valido .true. funciona con gramatica de enunciado y valido .false. funciona en gramatica de prueba
+            !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
+        `; //se cambio por else en visit rango y generatecharacter tambien valido .true. funciona con gramatica de enunciado y valido .false. funciona en gramatica de prueba
         return salida;
     }
 
@@ -458,7 +463,7 @@ end module parser `
             matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
             cursor = i + 1
             valido = .true.
-        else`;
+        end if`;
     }
 
 	visitIdentificador(node) {
