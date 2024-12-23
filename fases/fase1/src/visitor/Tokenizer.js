@@ -1,6 +1,7 @@
 import Visitor from './Visitor.js';
 import * as n from '../visitor/CST.js';
 let noTerminals = [];
+let caseInsensitive= false;
 let firstNonTerminal = false;
 let inBucle = [];
 let zeroOrMore = false;
@@ -126,15 +127,14 @@ module parser
         character(len=:), allocatable :: lexeme
         type(Queue) :: cola
         logical:: valido
-        valido = .false.
+        valido = .true.
 
         if (cursor > len(input)) then
             allocate(character(len=3) :: lexeme)
             lexeme = "EOF"
             return
         end if
-
-        !!este es un id`
+            `
             if(!(grammar[0].alias == null || grammar[0].alias == undefined || grammar[0].alias == '')){
                 //guardar el id y el alias
                 salida += `
@@ -151,9 +151,9 @@ module parser
             print *, "error lexico en col ", cursor, ', "'//input(cursor:cursor)//'"'
             lexeme = "ERROR"
         else 
-            print *, "lexema: ", cola%getTokens()
+            
             lexeme = cola%getTokens()
-            lexeme = lexeme//",EOF"
+            lexeme= lexeme//",EOF"
         end if
     end function nextSym`
         console.log("expresionesss: ",grammar)
@@ -173,6 +173,7 @@ module parser
         character(*),intent(in) :: input
         integer, intent(inout) :: cursor
         type(Queue), intent(inout) :: cola
+        type(Queue):: colatemp
         character(len=5) :: error = "ERROR"
 
         !!variable para almacenar la logica de *,+,?
@@ -187,14 +188,13 @@ module parser
         type(node), pointer:: puntero
         integer :: cursorTemporal, i
         logical:: valido
-        valido = .false.
+        valido = .true.
             `
             salida += grammar[i].accept(this);
             salida += `
     end function`
         }
-        //("/" / "*")
-salida += `
+        salida += `
     function to_lowercase(str) result(lower)
         character(len=*), intent(in) :: str
         integer :: i, char_code
@@ -220,40 +220,41 @@ end module parser `
     }
 
     visitOpciones(node) {
+        //("op1"/"op2"/"op3")
         let salida = `
-        localFirstOptionalFounded = localFirstOptionalFounded + 1
-        firstOptionalFounded(localFirstOptionalFounded) = .false.`
-        for (let i = 0; i < node.exprs.length; i++) { //prod = a b c/
-            salida += node.exprs[i].exprs[0].accept(this); //solo analizamos la primera expresion de la i opcion
-            salida += `
-        if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
-            firstOptionalFounded(localFirstOptionalFounded) = .true.
-            !pondremos un do para absorver un posible return de error y sea un exit
-            do
-                `;
-            //inBucle = [];
-            for (let j = 1; j < node.exprs[i].exprs.length; j++) {
-                salida += node.exprs[i].exprs[j].accept(this);
+
+        if (cursor > len(input)) then
+            valido = .false.
+            return
+        end if
+
+        if (valido) then
+            localFirstOptionalFounded = localFirstOptionalFounded + 1
+            firstOptionalFounded(localFirstOptionalFounded) = .false.`
+            for (let i = 0; i < node.exprs.length; i++) {
+                salida += node.exprs[i].exprs[0].accept(this); //solo analizamos la primera expresion de la i opcion
+                salida += `
+                if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
+                    firstOptionalFounded(localFirstOptionalFounded) = .true.
+                    !pondremos un do para absorver un posible return de error y sea un exit
+                    `;
+                for (let j = 1; j < node.exprs[i].exprs.length; j++) {
+                    salida += node.exprs[i].exprs[j].accept(this);
+                }
+                salida += `
+                end if
+                valido = .true.`;
             }
             salida += `
-                exit !salimos del do
-                end do
+            if (.not. firstOptionalFounded(localFirstOptionalFounded)) then
+                valido = .false.
             end if
-            ${inBucle[inBucle.length - 1] ? `
-            if(valido .eqv. .false.)then
-                exit
-            end if
-            ` : ' '}`;
-
-            inBucle.pop();
-        }
-        salida += `
-        if (.not. firstOptionalFounded(localFirstOptionalFounded)) then
-            valido = .false.
+            firstOptionalFounded(localFirstOptionalFounded) = .false.
+            localFirstOptionalFounded = localFirstOptionalFounded - 1
         end if
-        firstOptionalFounded(localFirstOptionalFounded) = .false.
-        localFirstOptionalFounded = localFirstOptionalFounded - 1`
-        return salida;
+        
+        `
+            return salida;
     }
     // Completado
     visitUnion(node) {
@@ -269,59 +270,82 @@ end module parser `
 
 
     visitExpresion(node) {
-        ///IMPORTANTE no lo logro resolver
-        //puede venir identificador, parentesis o no terminal junto a cuantificadores xd
-        //de opciones viene: if-else if, de Union viene ($condicion), buscando la condicion, pero en expresiones 
-        // puede venir *,+,? por lo que poner codigo de un loop es problematico xd lo que podria salir: if(loopStackPosition = loopStackPosition + 1 )
-
-        // if (!firstNonTerminal){
-        //     firstNonTerminal = node;
-        // }
-        // if (node.expr instanceof n.Identificador) {
-        //     //entonces es un no terminal, debemos de obtenerlo de las producciones
-        //     let noTerminal = noTerminals.find((produccion) => produccion.id === node.expr.id);
-        //     console.log("se sustituyo el no terminal: ", noTerminal.id)
-        //     if (noTerminal === undefined) {
-        //         console.log("no terminal: ", noTerminals)
-        //         throw new Error('No se encontro el no terminal');
-        //     }
-        //     node.expr = noTerminal.expr;
-        // }
         let salida = ""
         if (!(node.qty ==null || node.qty == undefined || node.qty == '')) {
             if (node.qty == '*') {
-                inBucle.push(true);
                 salida =`
-                loopStackPosition = loopStackPosition + 1
-                loopStack(loopStackPosition) = 1
-                do while (loopStack(loopStackPosition) >= 1)
-                    valido=.false.
-                    puntero => cola%tail  
-                    cursorTemporal = cursor
-                    !loopStack(loopStackPosition) = 0
-                    !!
-                    ${node.expr.accept(this)}
-                    !!
-                    if(valido .eqv. .false.) then
-                        valido =.true.
-                        exit
+                if (cursor > len(input)) then
+                    valido = .false.
+                    return
+                end if
+
+                if (valido) then
+                    loopStackPosition = loopStackPosition + 1
+                    loopStack(loopStackPosition) = 1
+                    matchStack(loopStackPosition) = 1
+                    do while (matchStack(loopStackPosition) >= 1 .and. valido)
+                        puntero => cola%tail  
+                        cursorTemporal = cursor
+                        matchStack(loopStackPosition) = 0
+                        !!
+                        ${node.expr.accept(this)}
+                        !!
+                    end do
+                    loopStackPosition = loopStackPosition - 1
+                    if (matchStack(loopStackPosition) >= 1 .and. .not. valido) then
+                        cola%tail => puntero
+                        cola%tail%next => null() 
+                        cursor = cursorTemporal
                     end if
-                    !valido = .true.
-                end do
-                loopStackPosition = loopStackPosition - 1
-                if (valido .eqv. .false.) then
-                    cola%tail => puntero
-                    cola%tail%next => null() 
-                    cursor = cursorTemporal
+                    valido = .true.
                 end if`
-                inBucle.pop();
             } else if (node.qty == '+') {
-                inBucle.push(true);
                 salida = `
+                if (cursor > len(input)) then
+                    valido = .false.
+                    return
+                end if
+                if (valido) then
+                    loopStackPosition = loopStackPosition + 1
+                    loopStack(loopStackPosition) = 0
+                    matchStack(loopStackPosition) = 0
+                    do while (.true.)
+                        puntero => cola%tail  
+                        cursorTemporal = cursor
+                        matchStack(loopStackPosition) = 0
+                        !!
+                        ${node.expr.accept(this)}
+                        !!
+                        if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
+                            print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
+                            call cola%enqueue(error//","//input(cursor:cursor))
+                            valido = .false.
+                        end if
+                        if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) /= 0) then
+                            valido = .true.
+                            exit
+                        end if
+                        loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+                    end do
+                    matchStack(loopStackPosition) = 0
+                    loopStackPosition = loopStackPosition - 1
+                    if (valido .eqv. .false.) then
+                        cola%tail => puntero
+                        cola%tail%next => null() 
+                        cursor = cursorTemporal
+                    end if
+                end if`
+            } else if (node.qty == '?') {
+                salida = `
+            if (cursor > len(input)) then
+                valido = .false.
+                return
+            end if
+            if (valido) then
                 loopStackPosition = loopStackPosition + 1
                 loopStack(loopStackPosition) = 0
                 matchStack(loopStackPosition) = 0
-                valido = .false.
+                valido = .true.
                 do while (.true.)
                     puntero => cola%tail  
                     cursorTemporal = cursor
@@ -329,51 +353,17 @@ end module parser `
                     !!
                     ${node.expr.accept(this)}
                     !!
-                    if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
-                        print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
-                        call cola%enqueue(error//","//input(cursor:cursor))
-                        valido = .false.
-                        return
-                    end if
-                    if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) /= 0) then
-                        valido = .true.
-                        exit
-                    end if
-                    loopStack(loopStackPosition) = loopStack(loopStackPosition) + 1
+                    valido = .true.
+                    exit
                 end do
-                matchStack(loopStackPosition) = 0
-                loopStackPosition = loopStackPosition - 1
-                if (valido .eqv. .false.) then
+                if (.not. valido .and. matchStack(loopStackPosition) /= 0) then
                     cola%tail => puntero
                     cola%tail%next => null() 
                     cursor = cursorTemporal
-                end if`
-                inBucle.pop();
-            } else if (node.qty == '?') {
-                inBucle.push(true);
-                salida = `
-            loopStackPosition = loopStackPosition + 1
-            loopStack(loopStackPosition) = 0
-            matchStack(loopStackPosition) = 0
-            valido = .true.
-            do while (.true.)
-                puntero => cola%tail  
-                cursorTemporal = cursor
+                end if
                 matchStack(loopStackPosition) = 0
-                !!
-                ${node.expr.accept(this)}
-                !!
-                exit
-            end do
-            if (.not. valido .and. matchStack(loopStackPosition) /= 0) then
-                cola%tail => puntero
-                cola%tail%next => null() 
-                cursor = cursorTemporal
-            end if
-            matchStack(loopStackPosition) = 0
-            loopStackPosition = loopStackPosition - 1
-            `
-            inBucle.pop();
+                loopStackPosition = loopStackPosition - 1
+            end if`
             } else {
                 throw new Error('signo de cantidad invalido');
             }
@@ -386,34 +376,31 @@ end module parser `
     // Completado
     visitString(node) {
         let salida = `
-            if (cursor > len(input)) then
-                valido = .false.
-                !print *, "error cursor en visitString", cursor
-                return
-            end if
-            `;
+        if (cursor > len(input)) then
+            valido = .false.
+            return
+        end if
+        if (valido) then`;
         if (node.isCase !== undefined) {
-            // Case sensitive
+            // Compara case sensitive
             salida += `
             if ("${node.val}" == input(cursor:cursor + ${node.val.length - 1})) then`;
         } else {
-            // Case insensitive - convertir ambas cadenas a minúsculas
+            // Si es case insensiive se disminuye a minus
             salida += `
-            if (to_lowercase("${node.val}") == to_lowercase(input(cursor:cursor + ${node.val.length - 1}))) then`;
+            if ("${node.val.toLowerCase()}" == to_lowercase(input(cursor:cursor + ${node.val.length - 1}))) then`;
         }
+        
         salida += `
                 call cola%enqueue(input(cursor:cursor + ${node.val.length - 1}))
                 cursor = cursor + ${node.val.length}
                 matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
                 valido = .true.
-                
-                `;
-        salida += `
             else
+                !print *, "error, la cadena no coincide", cursor, ', "',input(cursor:cursor + ${node.val.length - 1}),'", "',"${node.val}",'"'
                 valido = .false.
-                !${inBucle[inBucle.length - 1] ? 'exit' : ''}
-            end if`;
-        
+            end if
+        end if`;
         return salida;
     };
 
@@ -425,24 +412,27 @@ end module parser `
         return `
         if (cursor > len(input)) then
             valido = .false.
-            !print *, "error cursor en generateCaracteres", cursor
             return
         end if
-
-        if (findloc([${chars
-            .map((char) => `${char}`)
-            .join(', ')}], input(i:i), 1) > 0) then
-            call cola%enqueue(input(cursor:i))
-            matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
-            cursor = i + 1
-            valido = .true.
-            !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        end if
-            `;
+        if (valido) then
+            if (findloc([${chars
+                .map((char) => `${char}`)
+                .join(', ')}], input(i:i), 1) > 0) then
+                call cola%enqueue(input(cursor:i))
+                matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
+                cursor = i + 1
+                valido = .true.
+            end if
+        end if`;
     }
     
 // Completado
     visitCorchetes(node) {
+        if (node.isCase !== undefined){
+            caseInsensitive= false
+        } else{
+            caseInsensitive= true
+        }
         let salida = `
         i = cursor
         ${this.generateCaracteres(
@@ -451,13 +441,26 @@ end module parser `
         ${node.chars
             .filter((node) => node instanceof n.Rango)
             .map((range) => range.accept(this))
-            .join('\n')}
-            !valido = .true.
-            !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        `; //se cambio por else en visit rango y generatecharacter tambien valido .true. funciona con gramatica de enunciado y valido .false. funciona en gramatica de prueba
+            .join('\n')}`
         return salida;
     }
 
+    // visitRango(node) {
+    //     return `
+    //     if (cursor > len(input)) then
+    //         valido = .false. 
+    //         print *, "error cursor en visit rango", cursor
+    //         return 
+    //     end if
+    //     if (valido) then
+    //     `if (input(i:i) >= "${node.bottom}" .and. input(i:i) <= "${node.top}") then`} :
+    //             call cola%enqueue(input(cursor:i))
+    //             matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
+    //             cursor = i + 1
+    //             valido = .true.
+    //         end if
+    //     end if`;
+    // }
     visitRango(node) {
         return `
         if (cursor > len(input)) then
@@ -465,31 +468,40 @@ end module parser `
             print *, "error cursor en visit rango", cursor
             return 
         end if
-        if ((input(i:i) >= "${node.bottom}" .and. input(i:i) <= "${node.top}") .or. &
-            (input(i:i) >= "${node.bottom.toUpperCase()}" .and. input(i:i) <= "${node.top.toUpperCase()}")) then
-            call cola%enqueue(input(cursor:i))
-            matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
-            cursor = i + 1
-            valido = .true.
+        if (valido) then
+            ${caseInsensitive ? 
+                `if (input(i:i) >= "${node.bottom}" .and. input(i:i) <= "${node.top}") then` :
+                `if (to_lowercase(input(i:i)) >= "${node.bottom.toLowerCase()}" .and. to_lowercase(input(i:i)) <= "${node.top.toLowerCase()}") then`
+            }
+                call cola%enqueue(input(cursor:i))
+                matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
+                cursor = i + 1
+                valido = .true.
+            end if
         end if`;
     }
 
+
+
+
 	visitIdentificador(node) {
-
-
         // Se busca en noTerminals si existe una producción con ese id
         const produccion = noTerminals.find(p => p.id === node.id);
-            let salida = "";
+            let salida = `
+                        !!aqui hay un identificador con alias
+        if (cursor > len(input)) then
+            valido = .false.
+            return
+        end if
+        if (valido) then`
         if (produccion.alias) {
             salida += `
-        valido = ${produccion.alias}(input, cursor, cola)`
-        } else {
-            salida += `
+            valido = ${produccion.alias}(input, cursor, cola)`
+            } else {
+                salida += `
             valido = ${node.id}(input, cursor, cola)`;
         }
-        salida +=`
-        if (.not. valido) then
-            ${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
+        salida += `
         end if`
         return salida;
     }
