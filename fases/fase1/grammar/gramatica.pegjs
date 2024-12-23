@@ -28,12 +28,29 @@ gramatica
   }
 
 producciones
-  = _ id:identificador _ alias:(literales)? _ "=" _ expr:opciones (_";")? {
+  = _ id:identificador _ alias:literales? _ "=" _ expr:opciones (_";")? {
     // console.log("Producción reconocida:", { id, alias, expr });
     ids.push(id);
+    console.log("alias", alias);
     if (alias) {
-      alias = alias.toString().replace(/['"]/g, '');
-      return new n.Producciones(id, expr, alias.replace(/['"]/g, ''));
+      let result = "";
+
+      // Recorrer la lista y procesar los caracteres
+      alias.forEach(item => {
+        const char = item[1]; // Obtener el carácter, el 0 es null xd
+
+        if (char === '"') {
+          // Ignorar el carácter "
+          return;
+        } else if (char === ' ') {
+          // Sustituir espacio por "_"
+          result += '_';
+        } else {
+          // Concatenar el carácter normal
+          result += char;
+        }
+      });
+      return new n.Producciones(id, expr, result);
     }
     return new n.Producciones(id, expr, alias);
   }
@@ -135,12 +152,24 @@ corchetes
 
 
 contenidoChars
-  = "\\" escape:escape {return `\\${escape}`}
+  = "\\" escape:escape2 { console.log(escape.charCodeAt(0)); 
+    return `achar(${escape.charCodeAt(0)})`;}
   /  bottom:$[^\[\]] "-" top:$[^\[\]] {
     return new n.Rango(bottom, top);
   }
-  / $[^\[\]]
+  / $[^\[\]] {
+    if (text() === " ") {
+      return `achar(${text().charCodeAt(0)})`;
+    }
+    return `"${text()}"`
+  }
   
+escape2 = "b" { return "\b"; } 
+        / "f" { return "\f"; } 
+        / "n" { return "\n"; } 
+        / "r" { return "\r"; } 
+        / "t" { return "\t"; } 
+        / "v" { return "\v"; }
 // Regla para caracteres individuales
 
 //Completado
@@ -191,7 +220,7 @@ escape = "'"
         / "f"
         / "n"
         / "r"
-        / "t" {return `achar(${text().toCharCode(0)})`}
+        / "t"
         / "v"
         / "u"
 
