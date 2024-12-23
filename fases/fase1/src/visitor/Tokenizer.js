@@ -153,6 +153,7 @@ module parser
         else 
             print *, "lexema: ", cola%getTokens()
             lexeme = cola%getTokens()
+            lexeme = lexeme//",EOF"
         end if
     end function nextSym`
         console.log("expresionesss: ",grammar)
@@ -222,7 +223,7 @@ end module parser `
         let salida = `
         localFirstOptionalFounded = localFirstOptionalFounded + 1
         firstOptionalFounded(localFirstOptionalFounded) = .false.`
-        for (let i = 0; i < node.exprs.length; i++) {
+        for (let i = 0; i < node.exprs.length; i++) { //prod = a b c/
             salida += node.exprs[i].exprs[0].accept(this); //solo analizamos la primera expresion de la i opcion
             salida += `
             if (valido .and. .not. firstOptionalFounded(localFirstOptionalFounded)) then
@@ -377,7 +378,7 @@ end module parser `
         let salida = `
         if (cursor > len(input)) then
             valido = .false.
-            print *, "error cursor en visitString", cursor
+            !print *, "error cursor en visitString", cursor
             return
         end if
         `;
@@ -412,7 +413,7 @@ end module parser `
         return `
         if (cursor > len(input)) then
             valido = .false.
-            print *, "error cursor en generateCaracteres", cursor
+            !print *, "error cursor en generateCaracteres", cursor
             return
         end if
 
@@ -424,7 +425,7 @@ end module parser `
             cursor = i + 1
             valido = .true.
             !${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        end if
+        else
             `;
     }
     
@@ -439,9 +440,9 @@ end module parser `
             .filter((node) => node instanceof n.Rango)
             .map((range) => range.accept(this))
             .join('\n')}
-        valido = .true.
-        ${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
-        `;
+            valido = .true.
+            ${inBucle[inBucle.length - 1] ? 'exit' : 'return'}
+        end if`; //se cambio por else en visit rango y generatecharacter tambien valido .true. funciona con gramatica de enunciado y valido .false. funciona en gramatica de prueba
         return salida;
     }
 
@@ -457,7 +458,7 @@ end module parser `
             matchStack(loopStackPosition) = matchStack(loopStackPosition) + 1
             cursor = i + 1
             valido = .true.
-        end if`;
+        else`;
     }
 
 	visitIdentificador(node) {
