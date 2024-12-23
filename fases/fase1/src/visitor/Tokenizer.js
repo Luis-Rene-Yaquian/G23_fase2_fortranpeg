@@ -153,7 +153,7 @@ module parser
         else 
             
             lexeme = cola%getTokens()
-            lexeme= lexeme//",EOF"
+            lexeme = lexeme//",EOF"
         end if
     end function nextSym`
         console.log("expresionesss: ",grammar)
@@ -317,8 +317,8 @@ end module parser `
                         ${node.expr.accept(this)}
                         !!
                         if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) == 0) then
-                            print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
-                            call cola%enqueue(error//","//input(cursor:cursor))
+                            !print *, "error, la expresion no cumple con '+' ", cursor, ', "',input(cursor:cursor),'"'
+                            !call cola%enqueue(error//","//input(cursor:cursor))
                             valido = .false.
                         end if
                         if (matchStack(loopStackPosition) == 0 .and. loopStack(loopStackPosition) /= 0) then
@@ -509,7 +509,16 @@ end module parser `
         return node.contenido.accept(this);
     }
 	visitPunto(node) {
-
+       return `
+       if(valido)then
+       print*,"llega a probar final del input"
+        if (cursor > len(input)) then
+                call cola%enqueue("EOF")
+                valido = .false.
+                return
+            end if
+        end if` 
+        
     }
 	visitNegacionPunto(node) {
 
