@@ -1,11 +1,10 @@
 import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm';
-import { parse } from './parser/gramatica.js';
-import Tokenizer from './visitor/Tokenizer.js';
-import { ErrorReglas } from './parser/error.js';
+import { parse } from './src/parser/gramatica.js';
+import Tokenizer from './src/visitor/Tokenizador.js';
+import { ErrorReglas } from './src/parser/error.js';
 
 export let ids = [];
 export let usos = [];
-export let usosRef = [];
 export let errores = [];
 
 // Crear el editor principal
@@ -30,36 +29,29 @@ let decorations = [];
 const analizar = () => {
     const entrada = editor.getValue();
     ids.length = 0;
-    usosRef.length = 0;
     usos.length = 0;
     errores.length = 0;
     try {
-        let cst = parse(entrada);
-        for (let i = 0; i < usosRef.length; i++) {
-            for (let j = 0; j < cst.length; j++) {
-                if (usosRef[i].id === cst[j].id) {
-                    usosRef[i] = cst[j];
-                }
-            }
-        }
-
+        const cst = parse(entrada);
         if (errores.length > 0) {
             salida.setValue(`Error: ${errores[0].message}`);
             return;
         } else {
-            salida.setValue('Análisis Exitoso');
+           
+            const tokenizer = new Tokenizer();
+            const fileContents = tokenizer.generateTokenizer(cst);
+            const blob = new Blob([fileContents], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const button = document.getElementById('ButtomDownload');
+            button.href = url;
+            salida.setValue(fileContents);
         }
 
         // salida.setValue("Análisis Exitoso");
         // Limpiar decoraciones previas si la validación es exitosa
         decorations = editor.deltaDecorations(decorations, []);
 
-        const tokenizer = new Tokenizer();
-        const fileContents = tokenizer.generateTokenizer(cst);
-        const blob = new Blob([fileContents], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const button = document.getElementById('BotonDescarga');
-        button.href = url;
+       
     } catch (e) {
         if (e.location === undefined) {
             salida.setValue(`Error: ${e.message}`);
