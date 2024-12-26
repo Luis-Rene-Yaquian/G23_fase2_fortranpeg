@@ -11,7 +11,98 @@ export default class Tokenizer extends Visitor {
     }
     generateTokenizer(grammar) {
         return `
+
+
+
+module module_Queue
+    implicit none
+    type :: node
+        character(:), allocatable :: token
+        type(node), pointer :: next => null()
+    end type node
+
+    type :: Queue
+        type(node), pointer :: head => null()
+        type(node), pointer :: tail => null()
+        contains
+        procedure :: enqueue
+        procedure :: dequeue
+        procedure :: isEmpty
+        procedure :: getTokens
+    end type Queue
+
+    contains
+  
+    subroutine enqueue(this, token)
+        class(Queue), intent(inout) :: this
+        character(*), intent(in) :: token
+        type(node), pointer :: newNode
+        allocate(newNode)
+        newNode%token = token
+        newNode%next => null()
+        if (associated(this%head)) then
+            this%tail%next => newNode
+            this%tail => newNode
+        else
+            this%head => newNode
+            this%tail => newNode
+        end if
+    end subroutine enqueue
+
+    function dequeue(this) result(token)
+        class(Queue), intent(inout) :: this
+        type(node), pointer :: temp
+        character(:), allocatable :: token
+        if (associated(this%head)) then
+            token = this%head%token
+            temp => this%head
+            this%head => this%head%next
+            deallocate(temp)
+        else
+            token = "ERROR"
+        end if
+    end function dequeue
+
+    function isEmpty(this) result(isEmptyResult)
+        class(Queue), intent(in) :: this
+        logical :: isEmptyResult
+        isEmptyResult = .not. associated(this%head)
+    end function isEmpty
+
+    function getTokens(this) result(tokens)
+        class(Queue), intent(in) :: this
+        character(:), allocatable :: tokens, tokensTemp
+        type(node), pointer :: current
+    
+        ! Verificar si la pila está vacía
+        if (.not. associated(this%head)) then
+            tokens = "ERROR, no tokens found"
+            return
+        end if
+    
+        ! Inicializar tokens con el primer nodo
+        current => this%head
+        allocate(character(len=len(current%token)) :: tokens)
+        tokens = current%token
+    
+        ! Procesar los nodos siguientes
+        do
+            current => current%next
+            if (.not. associated(current)) then
+                exit
+            end if
+    
+            tokensTemp = current%token
+    
+            ! Redimensionar tokens para concatenar el siguiente token
+            tokens = tokens // "," // tokensTemp
+        end do
+    end function getTokens
+    
+end module module_Queue
+
 module parser
+use module_Queue
 implicit none
 
 contains
@@ -20,17 +111,21 @@ subroutine parse(input)
     character(len=:), intent(inout), allocatable :: input
     character(len=:), allocatable :: lexeme
     integer :: cursor
+    type(Queue) :: LocalStack
     cursor = 1
     do while (lexeme /= "EOF" )
         if(lexeme == "ERROR") THEN 
             cursor = cursor + 1
-            lexeme = nextSym(input, cursor)
+            lexeme = nextSym(input, cursor,LocalStack)
         else 
-            lexeme = nextSym(input, cursor)
+            lexeme = nextSym(input, cursor, LocalStack)
             
         end if
         print *, lexeme
     end do
+    print*,"////IMPRESION DE LA COLAD/////"
+    lexeme= LocalStack%getTokens()
+    print *, lexeme
 end subroutine parse
 
 function tolower(str) result(lower_str)
@@ -78,9 +173,10 @@ function replace_special_characters(input_string) result(output_string)
     output_string = temp_string
 end function
 
-function nextSym(input, cursor) result(lexeme)
+function nextSym(input, cursor,cola) result(lexeme)
     character(len=*), intent(in) :: input
     integer, intent(inout) :: cursor
+    type(Queue), intent(inout) :: cola
     character(len=:), allocatable :: lexeme
     character(len=:), allocatable :: buffer 
     logical :: concat_failed
@@ -271,7 +367,7 @@ end module parser
     }
 
     renderQuantifierOption(qty, condition, length){
-        var resultOneMore = `
+        var resultOneMore = ` 
         initialCursor = cursor
         do while (cursor <= len_trim(input) .and. (${condition}))
             cursor = cursor + ${length}
@@ -283,7 +379,11 @@ end module parser
             cursor = initialCursor
             concat_failed = .true.
             buffer = ""
-        end if`      ;
+        end if
+        if(len(buffer) > 0) then
+            call cola%enqueue(buffer)
+        end if
+        `      ;
 
         var resultZeroMore = `
         initialCursor = cursor
@@ -293,20 +393,28 @@ end module parser
         if (cursor > initialCursor) then
             buffer = buffer // input(initialCursor:cursor-1) 
             buffer = replace_special_characters(buffer)
-        end if`      ;
+        end if
+        if(len(buffer) > 0) then
+            call cola%enqueue(buffer)
+        end if
+        `      ;
 
         var resultZeroOrOne = `
         if (cursor <= len_trim(input) .and. (${condition})) then 
+            call cola%enqueue(input(cursor:cursor + ${length-1}))
             buffer = buffer // input(cursor:cursor + ${length - 1})
             buffer = replace_special_characters(buffer)
             cursor = cursor + ${length}
+            
         end if` ;
 
         var one = `
-        if (cursor <= len_trim(input) .and. (${condition})) then 
+        if (cursor <= len_trim(input) .and. (${condition})) then
+            call cola%enqueue(input(cursor:cursor + ${length-1})) 
             buffer = buffer // input(cursor:cursor + ${length - 1})
             buffer = replace_special_characters(buffer)
             cursor = cursor + ${length}
+            
         else
             concat_failed = .true.
             buffer = ""

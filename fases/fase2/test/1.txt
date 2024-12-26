@@ -1,6 +1,7 @@
-10
-hola 	3
-5 mundo
-56. 
-
-45
+Piezas BlanCas: Ra4 Rc5;
+---
+Piezas Negras Dh1 Dh2;
+-----------
+Piezas BLANCAS: Tb1 Th8;
+---
+Piezas negras: Pd2 Pd4;
