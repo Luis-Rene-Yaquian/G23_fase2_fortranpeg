@@ -194,7 +194,7 @@ export class ConteoOpciones {
     /**
      *
      * @param {Node[]} opciones
-	 * @param {string} val
+	 * @param {string?} val
      */
     constructor(opciones, val) {
         this.opciones = opciones;

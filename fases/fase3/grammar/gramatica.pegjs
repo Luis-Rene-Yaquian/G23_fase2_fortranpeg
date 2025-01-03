@@ -115,10 +115,10 @@ conteo   = "|" _ valor:(numero / identificador/predicate) _ "|" { //conteo
       return new n.ConteoRango(inicio, fin);
     }
   / "|" _ valor:(numero / identificador/predicate)? _ "," _ opciones:(match/opciones/predicate)+ _ "|" { //conteo, delimitador
-      return new n.ConteoOpciones(valor, opciones);
+      return new n.ConteoOpciones(opciones, valor);
     }
   / "|" _ inicio:(numero / identificador/predicate)? _ ".." _ fin:(numero / identificador/predicate)? _ "," _ opciones:(match/opciones)+ _ "|" {// min .. max, delimitador
-      return new n.ConteoRangoOpciones(inicio, fin, opciones);
+      return new n.ConteoRangoOpciones(opciones, inicio, fin);
     }
 
 

@@ -231,9 +231,8 @@ export default class FortranTranslator {
      * @this {Visitor}
      */
     visitAnnotated(node) {
-        if (node.qty && typeof node.qty === 'string') {
+        if (node.qty ) {
             if (node.expr instanceof CST.Identificador) {
-
                 // TODO: Implement quantifiers (i.e., ?, *, +)
                 return Template.strQtyIdent({
                         qty:node.qty,
@@ -241,7 +240,7 @@ export default class FortranTranslator {
                             this.currentChoice,
                             this.currentExpr
                         )}_temp = ${node.expr.accept(this)}`,
-                        pila: `peg_pull(${getExprId(
+                        pila: `call peg_push(${getExprId(
                             this.currentChoice,
                             this.currentExpr
                         )} , ${getExprId(
@@ -256,9 +255,6 @@ export default class FortranTranslator {
                 expr: node.expr.accept(this),
                 destination: getExprId(this.currentChoice, this.currentExpr),
             });
-        } else if (node.qty) {
-            // TODO: Implement repetitions (e.g., |3|, |1..3|, etc...)
-            throw new Error('Repetitions not implemented.');
         } else {
             if (node.expr instanceof CST.Parentesis) {
                 return  Template.ParentExpr({
@@ -276,10 +272,11 @@ export default class FortranTranslator {
                 `;
             }
             return Template.strExpr({
+                quantifier: '',
                 expr: node.expr.accept(this),
                 destination: getExprId(this.currentChoice, this.currentExpr),
             });
-        }
+        } 
     }
 
     /**

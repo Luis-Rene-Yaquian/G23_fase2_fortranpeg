@@ -373,10 +373,10 @@ function peg$parse(input, options) {
       return new n.ConteoRango(inicio, fin);
     };
   var peg$f18 = function(valor, opciones) { //conteo, delimitador
-      return new n.ConteoOpciones(valor, opciones);
+      return new n.ConteoOpciones(opciones, valor);
     };
   var peg$f19 = function(inicio, fin, opciones) {// min .. max, delimitador
-      return new n.ConteoRangoOpciones(inicio, fin, opciones);
+      return new n.ConteoRangoOpciones(opciones, inicio, fin);
     };
   var peg$f20 = function(returnType, code) {
     return new n.Predicate(returnType, code, {})

@@ -27,9 +27,12 @@ module parser
     interface toStr
         module procedure intToStr
         module procedure strToStr
+        module procedure intListToStr
+        module procedure strListToStr
     end interface
     
     interface peg_push
+        module procedure add_to_list_alloc_character
         ${Object.values(data.enqueuesList).map(item => `module procedure ${item.nameFunction}`).join('\n')}
     end interface
     
@@ -67,6 +70,36 @@ module parser
     ${data.actions.join('\n')}
 
     ${generateEnqueues(data.enqueuesList)}
+
+subroutine add_to_list_alloc_character(list, value)
+    character(len=:), allocatable, intent(inout) :: list(:)
+    character(len=:), allocatable, intent(in) :: value
+    integer :: current_size
+    character(len=:), allocatable :: temp(:)
+
+    ! Determinar el size actual de la lista
+    if (.not. allocated(list)) then
+        current_size = 0
+    else
+        current_size = size(list)
+    end if
+
+    ! Si la lista tiene elementos, copiar su contenido
+    if (current_size > 0) then
+        allocate(temp(current_size), mold=list)
+        temp = list
+        deallocate(list)
+    end if
+
+    ! Redimensionar la lista e insertar el nuevo valor
+    allocate(list(current_size + 1), mold=value)
+    if (current_size > 0) list(1:current_size) = temp
+    list(current_size + 1) = value
+
+    ! Liberar la memoria temporal
+    if (allocated(temp)) deallocate(temp)
+end subroutine add_to_list_alloc_character
+
 
 function acceptString(str, caseInsensitive) result(accept)
     character(len=*) :: str
@@ -231,12 +264,36 @@ end function acceptSet
         cast = trim(adjustl(tmp))
     end function intToStr
 
+    function intListToStr(intList) result(cast)
+        integer, intent(in) :: intList(:)
+        character(len=:), allocatable :: cast
+        integer :: i
+        character(len=31) :: tmp
+
+        cast = ""
+        do i = 1, size(intList)
+            write(tmp, '(I0)') intList(i)
+            cast = trim(cast) // trim(adjustl(tmp))
+        end do
+    end function intListToStr
+
     function strToStr(str) result(cast)
         character(len=:), allocatable :: str
         character(len=:), allocatable :: cast
 
         cast = str
     end function strToStr
+
+    function strListToStr(strList) result(cast)
+        character(len=*), intent(in) :: strList(:)
+        character(len=:), allocatable :: cast
+        integer :: i
+
+        cast = ""
+        do i = 1, size(strList)
+            cast = trim(cast) // trim(strList(i))
+        end do
+    end function strListToStr
 end module parser
 `;
 
@@ -254,7 +311,7 @@ export const rule = (data) => `
     function peg_${data.id}(accept) result (res)
         ${data.returnType} :: res
         ${data.exprDeclarations.join('\n')}
-        integer :: i
+        integer :: i,j
         logical, intent(out) :: accept
 
         accept=.false.
@@ -285,7 +342,8 @@ export const election = (data) => `
                 )
                 .join('\n')}
             case default
-                call pegError()
+            accept=.false.
+            return
             end select
         end do
 `;
@@ -308,7 +366,8 @@ export const union = (data) => `
 /**
  *
  * @param {{
-*  qty: (string|CST.ConteoRango|CST.ConteoSimple|CST.ConteoOpciones|CST.ConteoRangoOpciones);
+*  qty: (string|CST.Node);
+// *  qty: (string|CST.ConteoRango|CST.ConteoSimple|CST.ConteoOpciones|CST.ConteoRangoOpciones);
 *  callRule: string
 *  pila: string
 * }} data
@@ -380,7 +439,7 @@ export const strQtyIdent= (data) => {
         end if 
         `
     }  else if (qty instanceof CST.ConteoOpciones){
-        let delimiter = qty.opciones.map((opcion) => opcion.accept(this)).join(' .or. '); //posiblemente esto se deba de arreglar
+        let delimiter = qty.opciones.map((opcion) => `acceptString(${opcion}, .false.)` ).join(' .or. '); //posiblemente esto se deba de arreglar
         return `
         j = 0
         ${condition}
@@ -405,7 +464,7 @@ export const strQtyIdent= (data) => {
         end if 
         `
     } else if (qty instanceof CST.ConteoRangoOpciones){
-        let delimiter = qty.opciones.map((opcion) => opcion.accept(this)).join(' .or. ');
+        let delimiter = qty.opciones.map((opcion) => `acceptString(${opcion}, .false.)` ).join(' .or. ');
         return `
         j = 0
         ${condition}
@@ -436,51 +495,131 @@ export const strQtyIdent= (data) => {
  * @param {{
  *  expr: string;
  *  destination: string
- *  quantifier?: string;
+ *  quantifier: (string|CST.Node);
  * }} data
  * @returns
  */
 export const strExpr = (data) => {
-    if (!data.quantifier) {
+    const condition = data.expr;
+    const qty = data.quantifier;
+    if(qty===''){
         return `
-                lexemeStart = cursor
-                if(.not. ${data.expr}) cycle
-                ${data.destination} = consumeInput()
+       lexemeStart = cursor
+        if (.not.  ${condition}) cycle
+        ${data.destination} = consumeInput()
         `;
     }
-    switch (data.quantifier) {
-        case '+':
-            return `
+    else if (qty === '+' || (qty instanceof CST.ConteoRango && (qty.inicio === "1") && (qty.fin === null))) {
+        return `
+        lexemeStart = cursor
+        if (.not. (${condition})) then
+            cycle
+        end if
+        do while (.not. cursor > len(input))
+            if (.not. (${condition})) then
+                exit
+            end if
+        end do
+        ${data.destination} = consumeInput()
+        `
+    } else if (qty === '*'|| (qty instanceof CST.ConteoRango && (qty.inicio === "0" || qty.inicio === null) && (qty.fin === null))) {
+        return `
+        lexemeStart = cursor
+        do while (.true.)
+            ${condition}
+            if (.not. ${condition}) then
+                exit
+            end if
+        end do
+        ${data.destination} = consumeInput()
+        `;
+    } else if (qty === '?'|| (qty instanceof CST.ConteoRango && (qty.inicio === null) && (qty.fin === "1"))) {
+        return `
                 lexemeStart = cursor
-                if (.not. ${data.expr}) cycle
-                do while (.not. cursor > len(input))
-                    if (.not. ${data.expr}) exit
-                end do
-                ${data.destination} = consumeInput()
-            `;
-        case "*":
-            return `
-                lexemeStart = cursor
-                do while (.not. cursor > len(input))
-                    if (.not. ${data.expr}) exit
-                end do
-                ${data.destination} = consumeInput() 
-            `;
-        case "?":
-            return `
-                lexemeStart = cursor
-                if ( ${data.expr}) then
+                if ( (${condition})) then
                     ${data.destination} = consumeInput()
-                    !pushear?
+                    !si lo encuentra consume el lexema
                 end if
-            `;
-        default:
-            throw new Error(
-                `'${data.quantifier}' quantifier needs implementation`
-            );
+                `;;
+    } else if (qty instanceof CST.ConteoSimple) {
+        return `
+        j = 0
+        lexemeStart = cursor
+        do while (.not. cursor > len(input) .and. j < ${qty.val})
+            if (.not. (${condition})) then
+                exit
+            end if
+            j = j + 1
+        end do
+        if ( j /= ${qty.val} ) then
+            cycle
+        end if 
+        ${data.destination} = consumeInput()
+        `
+    } else if (qty instanceof CST.ConteoRango) {
+        return `
+        j = 0
+        lexemeStart = cursor
+        do while (.not. cursor > len(input) .and. j < ${qty.fin})
+            if (.not. (${condition})) then
+                exit
+            end if
+            j = j + 1
+        end do
+        if ( j < ${qty.inicio}) then
+            cycle
+        end if 
+        ${data.destination} = consumeInput()
+        `
+    } else if (qty instanceof CST.ConteoOpciones){
+        console.log("entro a opciones",qty.opciones)
+        let delimiter = qty.opciones.map((opcion) =>  `acceptString("${opcion.val}", .false.) `).join(' .or. ');
+        return `
+        j = 0
+        lexemeStart = cursor
+        if (.not. (${condition})) then
+            cycle
+        end if
+        j = j + 1
+        do while (.not. cursor > len(input) .and. j < ${qty.val})
+            if (.not. (${delimiter})) then
+                exit
+            end if
+            if (.not. (${condition})) then
+                exit
+            end if
+            j = j + 1
+        end do
+        if ( j /= ${qty.val} ) then
+            cycle
+        end if 
+        ${data.destination} = consumeInput()
+        `
+    } else if (qty instanceof CST.ConteoRangoOpciones){
+        let delimiter = qty.opciones.map((opcion) => `acceptString("${opcion.val}", .false.)` ).join(' .or. '); //posiblemente esto se deba de arreglar
+        return `
+        j = 0
+        lexemeStart = cursor
+        if (.not. (${condition})) then
+            cycle
+        end if
+        j = j + 1
+        do while (.not. cursor > len(input) .and. j < ${qty.fin})
+            if (.not. (${delimiter})) then
+                exit
+            end if
+            if (.not. (${condition})) then
+                exit
+            end if
+            j = j + 1
+        end do
+        if ( j < ${qty.inicio}) then
+            cycle
+        end if 
+        ${data.destination} = consumeInput()
+        `
     }
 };
-
 
 /**
  *
@@ -602,7 +741,7 @@ export const Parentesis = (data) => `
     function peg_P${data.id}(accept) result (res)
         ${data.returnType} :: res
         ${data.exprDeclarations.join('\n')}
-        integer :: i
+        integer :: i,j
         logical, intent(out) :: accept
 
         accept=.false.
