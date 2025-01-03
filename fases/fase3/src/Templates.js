@@ -27,9 +27,12 @@ module parser
     interface toStr
         module procedure intToStr
         module procedure strToStr
+        module procedure intListToStr
+        module procedure strListToStr
     end interface
     
     interface peg_push
+        module procedure add_to_list_alloc_character
         ${Object.values(data.enqueuesList).map(item => `module procedure ${item.nameFunction}`).join('\n')}
     end interface
     
@@ -67,6 +70,36 @@ module parser
     ${data.actions.join('\n')}
 
     ${generateEnqueues(data.enqueuesList)}
+
+subroutine add_to_list_alloc_character(list, value)
+    character(len=:), allocatable, intent(inout) :: list(:)
+    character(len=:), allocatable, intent(in) :: value
+    integer :: current_size
+    character(len=:), allocatable :: temp(:)
+
+    ! Determinar el size actual de la lista
+    if (.not. allocated(list)) then
+        current_size = 0
+    else
+        current_size = size(list)
+    end if
+
+    ! Si la lista tiene elementos, copiar su contenido
+    if (current_size > 0) then
+        allocate(temp(current_size), mold=list)
+        temp = list
+        deallocate(list)
+    end if
+
+    ! Redimensionar la lista e insertar el nuevo valor
+    allocate(list(current_size + 1), mold=value)
+    if (current_size > 0) list(1:current_size) = temp
+    list(current_size + 1) = value
+
+    ! Liberar la memoria temporal
+    if (allocated(temp)) deallocate(temp)
+end subroutine add_to_list_alloc_character
+
 
 function acceptString(str, caseInsensitive) result(accept)
     character(len=*) :: str
@@ -231,12 +264,36 @@ end function acceptSet
         cast = trim(adjustl(tmp))
     end function intToStr
 
+    function intListToStr(intList) result(cast)
+        integer, intent(in) :: intList(:)
+        character(len=:), allocatable :: cast
+        integer :: i
+        character(len=31) :: tmp
+
+        cast = ""
+        do i = 1, size(intList)
+            write(tmp, '(I0)') intList(i)
+            cast = trim(cast) // trim(adjustl(tmp))
+        end do
+    end function intListToStr
+
     function strToStr(str) result(cast)
         character(len=:), allocatable :: str
         character(len=:), allocatable :: cast
 
         cast = str
     end function strToStr
+
+    function strListToStr(strList) result(cast)
+        character(len=*), intent(in) :: strList(:)
+        character(len=:), allocatable :: cast
+        integer :: i
+
+        cast = ""
+        do i = 1, size(strList)
+            cast = trim(cast) // trim(strList(i))
+        end do
+    end function strListToStr
 end module parser
 `;
 
@@ -285,7 +342,8 @@ export const election = (data) => `
                 )
                 .join('\n')}
             case default
-                call pegError()
+            accept=.false.
+            return
             end select
         end do
 `;

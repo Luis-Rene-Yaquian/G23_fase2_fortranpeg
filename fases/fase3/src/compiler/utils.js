@@ -89,8 +89,8 @@ export const getEnqueues = (data) => {
         }
     });
 
-    actionType['character'] = { Declaration: 'character(:)',
-        nameFunction: 'add_to_list_character' };
+    delete actionType['character'];
+
     actionType['integer'] = { Declaration: 'integer',
         nameFunction: 'add_to_list_integer' };
     actionType['real'] = { Declaration: 'real',
